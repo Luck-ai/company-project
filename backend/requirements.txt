@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+pydantic
+SQLAlchemy>=1.4
+asyncpg
+psycopg2-binary
+pydantic
+alembic
+python-dotenv
+python-jose[cryptography]
+Jinja2
+multipart
