@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { BarChart3, FileText, RefreshCw, Home, Warehouse } from "lucide-react"
+import { BarChart3, FileText, Bell, Home, Warehouse } from "lucide-react"
 
 const navItems = [
   {
@@ -22,9 +22,9 @@ const navItems = [
     icon: BarChart3,
   },
   {
-    title: "Restock",
+    title: "Notifications",
     href: "/dashboard/restock",
-    icon: RefreshCw,
+    icon: Bell,
   },
 ]
 

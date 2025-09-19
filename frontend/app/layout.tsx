@@ -11,9 +11,9 @@ import "./globals.css"
 
 
 export const metadata: Metadata = {
-  title: "OptiStock",
+  title: "Toogtons Stock Management",
   description: "Professional inventory management system",
-  generator: "OptiStock",
+  generator: "Toogtons",
 }
 
 export default function RootLayout({

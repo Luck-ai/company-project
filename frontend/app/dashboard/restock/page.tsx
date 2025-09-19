@@ -1,5 +1,5 @@
-import { RestockManagement } from "@/components/restock/restock-management"
+import { NotificationHistory } from "@/components/notifications/notification-history"
 
-export default function RestockPage() {
-  return <RestockManagement />
+export default function NotificationPage() {
+  return <NotificationHistory />
 }

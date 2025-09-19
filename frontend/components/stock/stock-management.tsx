@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { SimpleUploadButton } from "./simple-upload-button"
 import { Plus, Search, Package, AlertTriangle, DollarSign, Filter } from "lucide-react"
 import { getProducts, getCategories } from '@/lib/api'
+import { notificationManager } from '@/lib/notifications'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export interface Product {
@@ -30,13 +32,14 @@ export interface Product {
 }
 
 export function StockManagement() {
+  const searchParams = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<{ id: number; name: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [selectedSize, setSelectedSize] = useState<string>("all")
-  const [stockFilter, setStockFilter] = useState<string>("all")
+  const [stockFilter, setStockFilter] = useState<string>(searchParams.get("filter") || "all")
 
   const loadData = async () => {
     try {
@@ -47,6 +50,22 @@ export function StockManagement() {
       ])
       setProducts(productsData)
       setCategories(categoriesData)
+      
+      // Check stock levels and trigger notifications
+      const stockItems = productsData.map(p => ({
+        id: p.id.toString(),
+        name: p.name,
+        currentStock: p.quantity,
+        threshold: p.low_stock_threshold,
+        category: p.category?.name || 'Unknown'
+      }))
+      
+      // Only check notifications on initial load to avoid spam
+      if (productsData.length > 0) {
+        setTimeout(() => {
+          notificationManager.checkStockLevels(stockItems)
+        }, 2000) // Delay to allow page to load
+      }
     } catch (error) {
       console.error("Error loading data:", error)
     } finally {

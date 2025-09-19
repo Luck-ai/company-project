@@ -20,10 +20,10 @@ export function DashboardHeader() {
         <div className="flex items-center space-x-6">
           <div className="flex items-center space-x-2">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">OS</span>
+              <span className="text-primary-foreground font-bold text-sm">TG</span>
             </div>
             <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              OptiStock
+              Toogtons Stock Management
             </h1>
           </div>
         </div>
