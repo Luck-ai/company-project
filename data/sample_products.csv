@@ -1,8 +1,0 @@
-name,sku,category_id,description,price,quantity,low_stock_threshold,supplier_id
-Edge Cable,EDG-CBL1,1,"High-flex edge cable",12.50,12,10,1
-Mini Speaker,MSPK-02,1,"Compact Bluetooth speaker",30.00,18,15,2
-Workbench Mat,WM-01,2,"Protective workbench mat",9.99,6,5,3
-Paint Roller,PR-10,2,"10cm paint roller",4.50,12,10,2
-LED Strip,LED-S10,1,"10m LED strip",22.00,24,20,1
-
-
