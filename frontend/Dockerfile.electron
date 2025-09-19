@@ -1,0 +1,135 @@
+# Dockerfile for Electron Desktop Application
+FROM node:18-alpine AS base
+
+# Install dependencies for Electron GUI support
+FROM ubuntu:22.04 AS electron-base
+
+# Install system dependencies for Electron and GUI
+RUN apt-get update && apt-get install -y \
+    curl \
+    gnupg \
+    lsb-release \
+    xvfb \
+    x11vnc \
+    fluxbox \
+    wget \
+    unzip \
+    xdg-utils \
+    libgtk-3-0 \
+    libnotify-dev \
+    libgconf-2-4 \
+    libnss3 \
+    libxss1 \
+    libasound2 \
+    libxtst6 \
+    libatspi2.0-0 \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libxss1 \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs
+
+# Set up VNC server for GUI access
+ENV DISPLAY=:99
+ENV VNC_PORT=5900
+ENV NOVNC_PORT=6080
+
+# Install noVNC for web-based VNC access
+RUN mkdir -p /opt/novnc/utils/websockify \
+    && wget -qO- https://github.com/novnc/noVNC/archive/v1.3.0.tar.gz | tar xz --strip 1 -C /opt/novnc \
+    && wget -qO- https://github.com/novnc/websockify/archive/v0.10.0.tar.gz | tar xz --strip 1 -C /opt/novnc/utils/websockify \
+    && chmod +x /opt/novnc/utils/novnc_proxy
+
+# Development stage with live reload
+FROM electron-base AS development
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev dependencies)
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Expose ports
+EXPOSE 3000 5900 6080
+
+# Create startup script for development
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+# Start Xvfb\n\
+Xvfb :99 -screen 0 1024x768x24 &\n\
+\n\
+# Start VNC server\n\
+x11vnc -display :99 -nopw -listen 0.0.0.0 -xkb -forever &\n\
+\n\
+# Start noVNC\n\
+/opt/novnc/utils/novnc_proxy --vnc localhost:5900 --listen 6080 &\n\
+\n\
+# Start window manager\n\
+fluxbox -display :99 &\n\
+\n\
+# Start the development server\n\
+exec "$@"\n\
+' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["npm", "run", "dev:electron"]
+
+# Production stage
+FROM electron-base AS production
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install only production dependencies
+RUN npm ci --only=production
+
+# Copy built application
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Expose ports
+EXPOSE 3000 5900 6080
+
+# Create startup script for production
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+# Start Xvfb\n\
+Xvfb :99 -screen 0 1024x768x24 &\n\
+\n\
+# Start VNC server\n\
+x11vnc -display :99 -nopw -listen 0.0.0.0 -xkb -forever &\n\
+\n\
+# Start noVNC\n\
+/opt/novnc/utils/novnc_proxy --vnc localhost:5900 --listen 6080 &\n\
+\n\
+# Start window manager\n\
+fluxbox -display :99 &\n\
+\n\
+# Wait for services to start\n\
+sleep 2\n\
+\n\
+# Start the production server and electron\n\
+npm run start &\n\
+sleep 5\n\
+npm run electron\n\
+' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

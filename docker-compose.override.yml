@@ -1,0 +1,30 @@
+# Docker Compose override for development
+version: '3.8'
+
+services:
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: deps
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
+    stdin_open: true
+    tty: true
+
+  electron-dev:
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    environment:
+      - NODE_ENV=development
+      - ELECTRON_ENABLE_LOGGING=true
+      - DISPLAY=:99
+    stdin_open: true
+    tty: true

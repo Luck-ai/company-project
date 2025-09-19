@@ -11,11 +11,25 @@ function createWindow() {
       nodeIntegration: false,
     }
   });
-  win.loadURL('http://localhost:3000');
+  
+  // Use environment variable for URL or default to localhost
+  const url = process.env.NEXT_URL || 'http://localhost:3000';
+  console.log(`Loading URL: ${url}`);
+  
+  win.loadURL(url);
+  
+  // Open DevTools in development
+  if (process.env.NODE_ENV === 'development') {
+    win.webContents.openDevTools();
+  }
 }
 
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
