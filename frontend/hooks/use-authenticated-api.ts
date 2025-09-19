@@ -1,14 +1,36 @@
-"use client"
+// ========================================"use client"
 
-import { useCallback } from 'react'
-import { apiFetch } from '@/lib/api'
-import { useAuth } from '@/components/auth/auth-provider'
+// COMMENTED OUT - ORIGINAL AUTHENTICATED API HOOK
 
-export function useAuthenticatedApi() {
-  const { handleTokenExpiry } = useAuth()
+// ========================================import { useCallback } from 'react'
 
-  const authenticatedFetch = useCallback(async (path: string, options: RequestInit = {}) => {
+// Uncomment this file when re-enabling backend integration with authenticationimport { apiFetch } from '@/lib/api'
+
+
+
+/*export function useAuthenticatedApi() {
+
+"use client"  const authenticatedFetch = useCallback(async (path: string, options: RequestInit = {}) => {
+
     try {
+
+import { useCallback } from 'react'      const response = await apiFetch(path, options)
+
+import { apiFetch } from '@/lib/api'      return response
+
+import { useAuth } from '@/components/auth/auth-provider'    } catch (error) {
+
+      throw error
+
+export function useAuthenticatedApi() {    }
+
+  const { handleTokenExpiry } = useAuth()  }, [])
+
+
+
+  const authenticatedFetch = useCallback(async (path: string, options: RequestInit = {}) => {  return { authenticatedFetch }
+
+    try {}
       const response = await apiFetch(path, options)
       
       // If we get a 401, the token expiry handler should already be triggered
@@ -26,6 +48,30 @@ export function useAuthenticatedApi() {
       throw error
     }
   }, [handleTokenExpiry])
+
+  return { authenticatedFetch }
+}
+*/
+
+// ========================================
+// MOCK AUTHENTICATED API HOOK (CURRENTLY ACTIVE)
+// ========================================
+// This is a simplified version for UI development without authentication
+
+"use client"
+
+import { useCallback } from 'react'
+import { apiFetch } from '@/lib/api'
+
+export function useAuthenticatedApi() {
+  const authenticatedFetch = useCallback(async (path: string, options: RequestInit = {}) => {
+    try {
+      const response = await apiFetch(path, options)
+      return response
+    } catch (error) {
+      throw error
+    }
+  }, [])
 
   return { authenticatedFetch }
 }

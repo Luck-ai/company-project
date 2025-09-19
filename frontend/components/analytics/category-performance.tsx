@@ -22,21 +22,23 @@ interface CategoryPerformanceProps {
   timeRange: string
 }
 
-// Mock category data
+// Mock clothing category data
 const categoryRevenueData = [
-  { category: "Electronics", revenue: 125000, growth: 15.2, margin: 35 },
-  { category: "Accessories", revenue: 78000, growth: 8.7, margin: 42 },
-  { category: "Clothing", revenue: 45000, growth: -2.1, margin: 28 },
-  { category: "Books", revenue: 23000, growth: -8.5, margin: 18 },
-  { category: "Home & Garden", revenue: 34000, growth: 12.3, margin: 31 },
+  { category: "T-Shirts", revenue: 145000, growth: 18.5, margin: 38 },
+  { category: "Jeans", revenue: 98000, growth: 12.3, margin: 35 },
+  { category: "Hoodies", revenue: 87000, growth: 15.7, margin: 32 },
+  { category: "Dresses", revenue: 76000, growth: 8.9, margin: 40 },
+  { category: "Jackets", revenue: 65000, growth: 6.2, margin: 28 },
+  { category: "Accessories", revenue: 45000, growth: -2.1, margin: 45 },
 ]
 
 const categoryMetricsData = [
-  { category: "Electronics", inventory: 85, sales: 92, profit: 78, satisfaction: 88 },
-  { category: "Accessories", inventory: 78, sales: 85, profit: 82, satisfaction: 91 },
-  { category: "Clothing", inventory: 65, sales: 58, profit: 45, satisfaction: 75 },
-  { category: "Books", inventory: 45, sales: 42, profit: 35, satisfaction: 82 },
-  { category: "Home & Garden", inventory: 72, sales: 68, profit: 65, satisfaction: 86 },
+  { category: "T-Shirts", inventory: 88, sales: 95, profit: 85, satisfaction: 92 },
+  { category: "Jeans", inventory: 82, sales: 88, profit: 78, satisfaction: 89 },
+  { category: "Hoodies", inventory: 75, sales: 82, profit: 72, satisfaction: 88 },
+  { category: "Dresses", inventory: 68, sales: 75, profit: 68, satisfaction: 85 },
+  { category: "Jackets", inventory: 65, sales: 68, profit: 58, satisfaction: 82 },
+  { category: "Accessories", inventory: 52, sales: 58, profit: 65, satisfaction: 78 },
 ]
 
 export function CategoryPerformance({ timeRange }: CategoryPerformanceProps) {

@@ -42,7 +42,8 @@ export function StockMovementChart({ productId, stockMovements: propStockMovemen
 
   // Transform movements into chart data
   const transformToChartData = (movements: any[]) => {
-    if (!movements || movements.length === 0) return []
+    // Ensure movements is an array
+    if (!Array.isArray(movements) || movements.length === 0) return []
     
     // Sort by transaction_date (actual transaction date) or fall back to created_at
     const sortedMovements = movements
@@ -97,7 +98,8 @@ export function StockMovementChart({ productId, stockMovements: propStockMovemen
 
   const chartData = transformToChartData(movements)
   // For recent movements table, show newest first
-  const recentMovements = movements.slice(0, 10) // Show last 10 movements (already in desc order from API)
+  // Ensure movements is an array before using slice
+  const recentMovements = Array.isArray(movements) ? movements.slice(0, 10) : [] // Show last 10 movements (already in desc order from API)
 
   if (loading) {
     return (
@@ -107,7 +109,7 @@ export function StockMovementChart({ productId, stockMovements: propStockMovemen
     )
   }
 
-  if (!movements || movements.length === 0) {
+  if (!Array.isArray(movements) || movements.length === 0) {
     return (
       <div className="flex items-center justify-center h-[400px] text-center">
         <div>

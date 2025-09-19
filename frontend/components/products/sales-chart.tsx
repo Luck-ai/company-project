@@ -26,7 +26,37 @@ export function SalesChart({ productId, salesData: propSalesData, refreshTrigger
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch sales data from backend
+  // Generate mock sales data for frontend-only system
+  const generateMockSalesData = (productId: string): SalesRecord[] => {
+    const salesData: SalesRecord[] = []
+    const currentDate = new Date()
+    
+    // Generate 3-6 months of sales data
+    for (let monthsBack = 5; monthsBack >= 0; monthsBack--) {
+      const salesDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - monthsBack, 1)
+      
+      // Generate 2-8 sales per month
+      const salesCount = Math.floor(Math.random() * 7) + 2
+      
+      for (let i = 0; i < salesCount; i++) {
+        const dayOffset = Math.floor(Math.random() * 28) + 1
+        const saleDate = new Date(salesDate.getFullYear(), salesDate.getMonth(), dayOffset)
+        
+        salesData.push({
+          id: Math.floor(Math.random() * 10000),
+          product_id: parseInt(productId),
+          user_id: 1,
+          quantity: Math.floor(Math.random() * 5) + 1,
+          sale_price: Math.floor(Math.random() * 100) + 20,
+          sale_date: saleDate.toISOString().split('T')[0]
+        })
+      }
+    }
+    
+    return salesData
+  }
+
+  // Fetch sales data (now uses mock data)
   useEffect(() => {
     if (!productId || propSalesData) return
 
@@ -34,14 +64,14 @@ export function SalesChart({ productId, salesData: propSalesData, refreshTrigger
       setLoading(true)
       setError(null)
       try {
-        const response = await apiFetch(`/sales/product/${productId}`)
-        if (!response.ok) {
-          throw new Error(`Failed to fetch sales data: ${response.status}`)
-        }
-        const data = await response.json()
-        setSalesData(data)
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 300))
+        
+        // Generate mock sales data
+        const mockData = generateMockSalesData(productId)
+        setSalesData(mockData)
       } catch (err) {
-        console.error('Error fetching sales data:', err)
+        console.error('Error generating mock sales data:', err)
         setError(err instanceof Error ? err.message : 'Failed to load sales data')
       } finally {
         setLoading(false)
@@ -53,7 +83,8 @@ export function SalesChart({ productId, salesData: propSalesData, refreshTrigger
 
   // Transform real sales data into chart format
   const transformSalesData = (sales: SalesRecord[]) => {
-    if (!sales || sales.length === 0) return []
+    // Add proper array validation
+    if (!Array.isArray(sales) || sales.length === 0) return []
     
     // Group sales by month
     const monthlyData: { [key: string]: { sales: number, revenue: number, monthNumber: number } } = {}
@@ -82,8 +113,9 @@ export function SalesChart({ productId, salesData: propSalesData, refreshTrigger
       .sort((a, b) => a.monthNumber - b.monthNumber)
   }
   
-  // Use provided salesData or fetched data
-  const displayData = transformSalesData(propSalesData || salesData)
+  // Use provided salesData or fetched data, ensure it's always an array
+  const safeData = Array.isArray(propSalesData) ? propSalesData : Array.isArray(salesData) ? salesData : []
+  const displayData = transformSalesData(safeData)
   
   // Show loading state
   if (loading) {

@@ -20,22 +20,22 @@ interface SalesAnalyticsProps {
   timeRange: string
 }
 
-// Mock sales data
+// Mock clothing sales data
 const salesTrendData = [
-  { month: "Jan", revenue: 45000, orders: 180, avgOrderValue: 250 },
-  { month: "Feb", revenue: 52000, orders: 208, avgOrderValue: 250 },
-  { month: "Mar", revenue: 48000, orders: 192, avgOrderValue: 250 },
-  { month: "Apr", revenue: 61000, orders: 244, avgOrderValue: 250 },
-  { month: "May", revenue: 55000, orders: 220, avgOrderValue: 250 },
-  { month: "Jun", revenue: 67000, orders: 268, avgOrderValue: 250 },
+  { month: "Jan", revenue: 58000, orders: 285, avgOrderValue: 203 },
+  { month: "Feb", revenue: 67000, orders: 335, avgOrderValue: 200 },
+  { month: "Mar", revenue: 72000, orders: 360, avgOrderValue: 200 },
+  { month: "Apr", revenue: 89000, orders: 425, avgOrderValue: 209 },
+  { month: "May", revenue: 95000, orders: 456, avgOrderValue: 208 },
+  { month: "Jun", revenue: 105000, orders: 512, avgOrderValue: 205 },
 ]
 
 const topProductsData = [
-  { name: "Wireless Headphones", sales: 245, revenue: 24495 },
-  { name: "Bluetooth Speaker", sales: 189, revenue: 15111 },
-  { name: "USB-C Cable", sales: 156, revenue: 3118 },
-  { name: "Wireless Mouse", sales: 134, revenue: 4016 },
-  { name: "Laptop Stand", sales: 98, revenue: 4899 },
+  { name: "Classic White T-Shirt", sales: 324, revenue: 9720 },
+  { name: "Slim Fit Jeans", sales: 256, revenue: 15360 },
+  { name: "Cotton Hoodie", sales: 198, revenue: 13860 },
+  { name: "Summer Dress", sales: 167, revenue: 11690 },
+  { name: "Denim Jacket", sales: 134, revenue: 10720 },
 ]
 
 const salesChannelData = [
@@ -132,7 +132,7 @@ export function SalesAnalytics({ timeRange }: SalesAnalyticsProps) {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"

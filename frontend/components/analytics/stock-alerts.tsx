@@ -6,64 +6,64 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { AlertTriangle, Package, TrendingDown, Clock } from "lucide-react"
 
-// Mock alert data
+// Mock clothing stock alerts
 const stockAlerts = [
   {
     id: "1",
-    product: "Bluetooth Speaker",
-    sku: "BS-002",
+    product: "Classic White T-Shirt (M)",
+    sku: "CWT-M-001",
     currentStock: 8,
     threshold: 15,
-    category: "Electronics",
-    supplier: "AudioMax",
+    category: "T-Shirts",
+    brand: "StyleCo",
     lastRestock: "2024-01-10",
     priority: "high",
     type: "low_stock",
   },
   {
     id: "2",
-    product: "Laptop Stand",
-    sku: "LS-004",
+    product: "Slim Fit Jeans (32W)",
+    sku: "SFJ-32W-002",
     currentStock: 3,
-    threshold: 5,
-    category: "Accessories",
-    supplier: "DeskPro",
+    threshold: 10,
+    category: "Jeans",
+    brand: "TrendWear",
     lastRestock: "2024-01-08",
     priority: "high",
     type: "low_stock",
   },
   {
     id: "3",
-    product: "Gaming Keyboard",
-    sku: "GK-006",
+    product: "Cotton Hoodie (L)",
+    sku: "CH-L-003",
     currentStock: 0,
-    threshold: 10,
-    category: "Electronics",
-    supplier: "TechCorp",
+    threshold: 12,
+    category: "Hoodies",
+    brand: "UrbanFit",
     lastRestock: "2024-01-05",
     priority: "critical",
     type: "out_of_stock",
   },
   {
     id: "4",
-    product: "Wireless Charger",
-    sku: "WC-007",
-    currentStock: 12,
-    threshold: 20,
-    category: "Accessories",
-    supplier: "TechCorp",
+    product: "Summer Dress (S)",
+    sku: "SD-S-004",
+    currentStock: 6,
+    threshold: 15,
+    category: "Dresses",
+    brand: "ClassicThread",
     lastRestock: "2024-01-12",
     priority: "medium",
     type: "low_stock",
   },
   {
     id: "5",
-    product: "USB Hub",
-    sku: "UH-008",
+    product: "Denim Jacket (M)",
+    sku: "DJ-M-005",
     currentStock: 0,
-    threshold: 15,
-    category: "Accessories",
-    supplier: "CableCo",
+    threshold: 8,
+    category: "Jackets",
+    brand: "TrendWear",
     lastRestock: "2024-01-03",
     priority: "critical",
     type: "out_of_stock",
@@ -152,7 +152,7 @@ export function StockAlerts() {
                 <TableHead>Current Stock</TableHead>
                 <TableHead>Threshold</TableHead>
                 <TableHead>Category</TableHead>
-                <TableHead>Supplier</TableHead>
+                <TableHead>Brand</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -176,7 +176,7 @@ export function StockAlerts() {
                   </TableCell>
                   <TableCell>{alert.threshold}</TableCell>
                   <TableCell>{alert.category}</TableCell>
-                  <TableCell>{alert.supplier}</TableCell>
+                  <TableCell>{alert.brand}</TableCell>
                   <TableCell>{getPriorityBadge(alert.priority)}</TableCell>
                   <TableCell>
                     <div className="flex items-center space-x-2">

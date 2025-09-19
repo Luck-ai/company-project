@@ -19,22 +19,23 @@ interface InventoryOverviewProps {
   timeRange: string
 }
 
-// Mock data for inventory trends
+// Mock data for clothing inventory trends
 const inventoryTrendData = [
-  { date: "Jan", totalValue: 850000, totalItems: 1250, turnoverRate: 8.2 },
-  { date: "Feb", totalValue: 892000, totalItems: 1320, turnoverRate: 8.5 },
-  { date: "Mar", totalValue: 876000, totalItems: 1280, turnoverRate: 7.9 },
-  { date: "Apr", totalValue: 923000, totalItems: 1380, turnoverRate: 9.1 },
-  { date: "May", totalValue: 945000, totalItems: 1420, turnoverRate: 9.3 },
-  { date: "Jun", totalValue: 892340, totalItems: 1350, turnoverRate: 8.8 },
+  { date: "Jan", totalValue: 1150000, totalItems: 580, turnoverRate: 12.8 },
+  { date: "Feb", totalValue: 1220000, totalItems: 595, turnoverRate: 13.2 },
+  { date: "Mar", totalValue: 1180000, totalItems: 605, turnoverRate: 12.5 },
+  { date: "Apr", totalValue: 1285000, totalItems: 620, turnoverRate: 14.1 },
+  { date: "May", totalValue: 1320000, totalItems: 635, turnoverRate: 14.5 },
+  { date: "Jun", totalValue: 1240680, totalItems: 630, turnoverRate: 13.8 },
 ]
 
 const stockLevelData = [
-  { category: "Electronics", inStock: 450, lowStock: 23, outOfStock: 5 },
-  { category: "Accessories", inStock: 320, lowStock: 12, outOfStock: 2 },
-  { category: "Clothing", inStock: 280, lowStock: 8, outOfStock: 1 },
-  { category: "Books", inStock: 150, lowStock: 15, outOfStock: 3 },
-  { category: "Home & Garden", inStock: 200, lowStock: 6, outOfStock: 1 },
+  { category: "T-Shirts", inStock: 145, lowStock: 8, outOfStock: 2 },
+  { category: "Jeans", inStock: 128, lowStock: 5, outOfStock: 1 },
+  { category: "Hoodies", inStock: 92, lowStock: 3, outOfStock: 1 },
+  { category: "Dresses", inStock: 85, lowStock: 2, outOfStock: 0 },
+  { category: "Jackets", inStock: 65, lowStock: 0, outOfStock: 1 },
+  { category: "Accessories", inStock: 115, lowStock: 0, outOfStock: 0 },
 ]
 
 export function InventoryOverview({ timeRange }: InventoryOverviewProps) {

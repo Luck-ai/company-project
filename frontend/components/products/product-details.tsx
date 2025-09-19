@@ -2,16 +2,16 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { ArrowLeft, Edit, TrendingUp, TrendingDown, Package, DollarSign, User, RefreshCw, Plus, Upload } from "lucide-react"
+
+import { ArrowLeft, TrendingUp, TrendingDown, Package, DollarSign } from "lucide-react"
 import { SalesChart } from "./sales-chart"
 import { StockMovementChart } from "./stock-movement-chart"
-import { EditProductDialog } from "@/components/stock/edit-product-dialog"
-import { AddSaleDialog } from "./add-sale-dialog"
+
+
 import { apiFetch } from '@/lib/api'
 import { useAppToast } from '@/lib/use-toast'
 import type { Product } from "@/components/stock/stock-management"
@@ -26,27 +26,74 @@ export function ProductDetails({ productId }: ProductDetailsProps) {
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [viewSupplier, setViewSupplier] = useState<any | null>(null)
-  const [supplierData, setSupplierData] = useState<any | null>(null)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [isUploadingSales, setIsUploadingSales] = useState(false)
-  const [isAddSaleDialogOpen, setIsAddSaleDialogOpen] = useState(false)
+
+
+
+
   const [stockMovements, setStockMovements] = useState<any[]>([])
-  const [salesRefreshTrigger, setSalesRefreshTrigger] = useState(0)
+
+
+  // Mock data for product details
+  const generateMockStockMovements = (productId: string) => {
+    const movementTypes = ['sale', 'restock', 'adjustment', 'initial']
+    const movements = []
+    let currentStock = 150
+    
+    // Generate last 30 days of movements
+    for (let i = 30; i >= 0; i--) {
+      const date = new Date()
+      date.setDate(date.getDate() - i)
+      
+      // Random number of movements per day (0-3)
+      const dailyMovements = Math.floor(Math.random() * 4)
+      
+      for (let j = 0; j < dailyMovements; j++) {
+        const type = movementTypes[Math.floor(Math.random() * movementTypes.length)]
+        let change = 0
+        
+        switch (type) {
+          case 'sale':
+            change = -Math.floor(Math.random() * 10) - 1 // -1 to -10
+            break
+          case 'restock':
+            change = Math.floor(Math.random() * 50) + 10 // +10 to +60
+            break
+          case 'adjustment':
+            change = Math.floor(Math.random() * 21) - 10 // -10 to +10
+            break
+          case 'initial':
+            change = 0
+            break
+        }
+        
+        const quantityBefore = currentStock
+        currentStock = Math.max(0, currentStock + change)
+        
+        movements.push({
+          id: movements.length + 1,
+          product_id: parseInt(productId),
+          movement_type: type,
+          quantity_change: change,
+          quantity_before: quantityBefore,
+          quantity_after: currentStock,
+          transaction_date: date.toISOString(),
+          created_at: date.toISOString(),
+          notes: type === 'sale' ? 'Online sale' : type === 'restock' ? 'Supplier delivery' : 'Stock adjustment'
+        })
+      }
+    }
+    
+    return movements.reverse() // Most recent first
+  }
 
   const fetchStockMovements = async (productId: string) => {
     try {
-      const res = await apiFetch(`/products/${productId}/stock-movements`)
-      if (res.ok) {
-        const movements = await res.json()
-        setStockMovements(movements)
-      } else {
-        const errorText = await res.text()
-        console.error('Stock movements fetch failed:', res.status, errorText)
-        setStockMovements([])
-      }
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 200))
+      const movements = generateMockStockMovements(productId)
+      setStockMovements(movements)
     } catch (err) {
-      console.error('Error fetching stock movements:', err)
+      console.error('Error generating mock stock movements:', err)
       setStockMovements([])
     }
   }
@@ -56,37 +103,37 @@ export function ProductDetails({ productId }: ProductDetailsProps) {
       setLoading(true)
       setError(null)
       
-      const res = await apiFetch(`/products/${productId}`)
-      if (!res.ok) {
-        throw new Error(`Failed to fetch product: ${res.status}`)
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      // Generate mock product data based on productId
+      const mockProduct: Product = {
+        id: parseInt(productId),
+        name: `Product ${productId}`,
+        sku: `SKU-${productId.padStart(3, '0')}`,
+        category_id: Math.floor(Math.random() * 6) + 1,
+        description: `High-quality product with excellent features. Perfect for everyday use.`,
+        price: Math.floor(Math.random() * 200) + 20,
+        quantity: Math.floor(Math.random() * 100) + 10,
+        low_stock_threshold: 15,
+        size: ['XS', 'S', 'M', 'L', 'XL', 'XXL'][Math.floor(Math.random() * 6)],
+        color: ['Black', 'White', 'Navy', 'Gray', 'Red'][Math.floor(Math.random() * 5)],
+        material: 'Cotton Blend',
+        brand: ['StyleCo', 'TrendWear', 'UrbanFit', 'ClassicThread'][Math.floor(Math.random() * 4)],
+        user_id: 1,
+        last_updated: new Date().toISOString().split('T')[0],
+        category: {
+          id: Math.floor(Math.random() * 6) + 1,
+          name: ['T-Shirts', 'Jeans', 'Hoodies', 'Dresses', 'Jackets', 'Accessories'][Math.floor(Math.random() * 6)]
+        }
       }
       
-      const data = await res.json()
+      setProduct(mockProduct)
       
-      // Direct mapping now that backend returns nested category & supplier objects
-      const categoryName = data.category?.name ?? (typeof data.category === 'string' ? data.category : '') ?? ''
-      const mappedProduct: Product = {
-        id: String(data.id ?? ""),
-        name: data.name ?? "",
-        sku: data.sku ?? "",
-        category: categoryName,
-        description: data.description ?? "",
-        quantity: Number(data.quantity ?? 0),
-        price: Number(data.price ?? 0),
-        lowStockThreshold: Number(data.low_stock_threshold ?? data.lowStockThreshold ?? 0),
-        supplier: data.supplier?.name ?? data.supplier ?? "",
-        lastUpdated: data.last_updated ?? data.lastUpdated ?? "",
-      }
-      
-      setProduct(mappedProduct)
-      
-      // Fetch sales data and stock movements for this product
-      await Promise.all([
-
-        fetchStockMovements(mappedProduct.id)
-      ])
+      // Fetch stock movements for this product
+      await fetchStockMovements(productId)
     } catch (err: any) {
-      console.error('Error fetching product:', err)
+      console.error('Error generating mock product:', err)
       setError(err.message || 'Failed to load product')
     } finally {
       setLoading(false)
@@ -142,106 +189,15 @@ export function ProductDetails({ productId }: ProductDetailsProps) {
     return { label: "In Stock", variant: "default" as const }
   }
 
-  const status = getStockStatus(product.quantity, product.lowStockThreshold)
+  const status = getStockStatus(product.quantity, product.low_stock_threshold)
 
-  const handleViewSupplier = async () => {
-    try {
-      const res = await apiFetch('/suppliers/')
-      if (res.ok) {
-        const suppliers = await res.json()
-        const supplier = suppliers.find((s: any) => s.name === product.supplier || s.id === product.supplier)
-        if (supplier) {
-          setSupplierData(supplier)
-          setViewSupplier(supplier)
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching supplier:', err)
-    }
-  }
 
-  const handleEditProduct = (updatedProduct: Product) => {
-    setProduct(updatedProduct)
-    setIsEditDialogOpen(false)
-    // Refresh stock movements to show any manual quantity changes
-    fetchStockMovements(updatedProduct.id)
-    pushToast({
-      title: "Product Updated",
-      description: "Product details have been successfully updated.",
-      variant: "success"
-    })
-  }
 
-  const handleAddSales = () => {
-    setIsAddSaleDialogOpen(true)
-  }
 
-  const handleUploadSales = () => {
-    // Create a file input for CSV upload
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.csv'
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (!file) return
-      
-      setIsUploadingSales(true)
-      try {
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('product_id', productId)
-        
-        const res = await apiFetch('/sales/upload', {
-          method: 'POST',
-          body: formData
-        })
-        
-        if (res.ok) {
-          const result = await res.json()
-          console.log('CSV upload result:', result) // Debug logging
-          // Refresh all data after upload (product data includes updated stock quantity)
-          await Promise.all([
-            fetchProduct(), // Refresh product data to show updated stock
-            fetchStockMovements(productId)
-          ])
-          // Trigger sales chart refresh
-          setSalesRefreshTrigger(prev => prev + 1)
-          
-          pushToast({
-            title: "Success",
-            description: `Successfully uploaded ${result.sales_created} of ${result.total_rows_processed || 'unknown'} sales records!`,
-            variant: "success"
-          })
-          
-          if (result.errors && result.errors.length > 0) {
-            pushToast({
-              title: "Warnings",
-              description: `${result.errors.length} rows had issues. Check console for details.`,
-              variant: "default"
-            })
-            console.warn('Upload warnings:', result.errors)
-          }
-        } else {
-          const errorData = await res.json().catch(() => ({ detail: 'Unknown error' }))
-          pushToast({
-            title: "Upload Failed",
-            description: errorData.detail || 'Unknown error occurred',
-            variant: "error"
-          })
-        }
-      } catch (err) {
-        console.error('Error uploading sales:', err)
-        pushToast({
-          title: "Error",
-          description: "Failed to upload sales data",
-          variant: "error"
-        })
-      } finally {
-        setIsUploadingSales(false)
-      }
-    }
-    input.click()
-  }
+
+
+
+
 
   return (
     <div className="space-y-6">
@@ -256,22 +212,6 @@ export function ProductDetails({ productId }: ProductDetailsProps) {
             <h1 className="text-3xl font-bold">{product.name}</h1>
             <p className="text-muted-foreground">SKU: {product.sku}</p>
           </div>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={handleViewSupplier}>
-            <User className="h-4 w-4 mr-2" />
-            View Supplier
-          </Button>
-          <Button variant="outline" asChild>
-            <Link href="/dashboard/restock">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Reorder Stock
-            </Link>
-          </Button>
-          <Button onClick={() => setIsEditDialogOpen(true)}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Product
-          </Button>
         </div>
       </div>
 
@@ -315,7 +255,7 @@ export function ProductDetails({ productId }: ProductDetailsProps) {
             <TrendingDown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{product.lowStockThreshold}</div>
+            <div className="text-2xl font-bold">{product.low_stock_threshold}</div>
             <p className="text-xs text-muted-foreground mt-2">Threshold level</p>
           </CardContent>
         </Card>
@@ -340,15 +280,15 @@ export function ProductDetails({ productId }: ProductDetailsProps) {
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Category</p>
-                <p className="text-sm">{product.category || 'Uncategorized'}</p>
+                <p className="text-sm">{product.category && typeof product.category === 'object' ? product.category.name : (product.category || 'Uncategorized')}</p>
               </div>
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Supplier</p>
-                <p className="text-sm">{product.supplier}</p>
+                <p className="text-sm font-medium text-muted-foreground">Brand</p>
+                <p className="text-sm">{product.brand}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Last Updated</p>
-                <p className="text-sm">{product.lastUpdated}</p>
+                <p className="text-sm">{product.last_updated}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Status</p>
@@ -367,30 +307,11 @@ export function ProductDetails({ productId }: ProductDetailsProps) {
         {/* Sales History */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Sales History</CardTitle>
-                <CardDescription>Track sales performance over time. CSV format: quantity,sale_date (YYYY-MM-DD)</CardDescription>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm" onClick={handleAddSales}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Sales
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleUploadSales}
-                  disabled={isUploadingSales}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  {isUploadingSales ? 'Uploading...' : 'Upload CSV'}
-                </Button>
-              </div>
-            </div>
+              <CardTitle>Sales History</CardTitle>
+              <CardDescription>View sales performance over time</CardDescription>
           </CardHeader>
           <CardContent>
-            <SalesChart productId={productId} refreshTrigger={salesRefreshTrigger} />
+            <SalesChart productId={productId} />
           </CardContent>
         </Card>
 
@@ -406,65 +327,10 @@ export function ProductDetails({ productId }: ProductDetailsProps) {
         </Card>
       </div>
 
-      {/* View Supplier Dialog */}
-      {viewSupplier && (
-        <Dialog open={true} onOpenChange={(open) => { if (!open) setViewSupplier(null) }}>
-          <DialogContent className="sm:max-w-[520px]">
-            <DialogHeader className="sr-only">
-              <DialogTitle>{viewSupplier.name}</DialogTitle>
-              <DialogDescription>{viewSupplier.email ?? ''}{viewSupplier.phone ? ` · ${viewSupplier.phone}` : ''}</DialogDescription>
-            </DialogHeader>
-            <Card>
-              <CardHeader>
-                <CardTitle>{viewSupplier.name}</CardTitle>
-                <CardDescription>{viewSupplier.email ?? ''}{viewSupplier.phone ? ` · ${viewSupplier.phone}` : ''}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="text-sm text-muted-foreground">Name</div>
-                  <div className="font-medium">{viewSupplier.name}</div>
-                  <div className="text-sm text-muted-foreground">Email</div>
-                  <div className="text-sm">{viewSupplier.email ?? '—'}</div>
-                  <div className="text-sm text-muted-foreground">Phone</div>
-                  <div className="text-sm">{viewSupplier.phone ?? '—'}</div>
-                  <div className="text-sm text-muted-foreground">Address</div>
-                  <div className="text-sm">{viewSupplier.address ?? '—'}</div>
-                </div>
-              </CardContent>
-            </Card>
-          </DialogContent>
-        </Dialog>
-      )}
 
-      {/* Edit Product Dialog */}
-      {product && (
-        <EditProductDialog
-          open={isEditDialogOpen}
-          onOpenChange={setIsEditDialogOpen}
-          product={product}
-          onEdit={handleEditProduct}
-        />
-      )}
 
-      {/* Add Sale Dialog */}
-      {product && (
-        <AddSaleDialog
-          open={isAddSaleDialogOpen}
-          onOpenChange={setIsAddSaleDialogOpen}
-          productId={product.id}
-          productName={product.name}
-          productPrice={product.price}
-          onSaleAdded={async () => {
-            // Refresh all data after manual sale (product data includes updated stock quantity)
-            await Promise.all([
-              fetchProduct(), // Refresh product data to show updated stock
-              fetchStockMovements(product.id)
-            ])
-            // Trigger sales chart refresh
-            setSalesRefreshTrigger(prev => prev + 1)
-          }}
-        />
-      )}
+
+
     </div>
   )
 }

@@ -5,30 +5,33 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { CalendarDays, TrendingUp, TrendingDown, Package, DollarSign, AlertTriangle, Users } from "lucide-react"
+import { CalendarDays, TrendingUp, TrendingDown, Package, DollarSign, AlertTriangle, Shirt, Palette } from "lucide-react"
 import { InventoryOverview } from "./inventory-overview"
 import { SalesAnalytics } from "./sales-analytics"
 import { CategoryPerformance } from "./category-performance"
-import { SupplierAnalytics } from "./supplier-analytics"
+
 import { StockAlerts } from "./stock-alerts"
 
 export function AnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState("30d")
 
-  // Mock KPI data
+  // Mock KPI data for clothing inventory
   const kpis = {
-    totalRevenue: 245680,
-    revenueChange: 12.5,
-    totalOrders: 1247,
-    ordersChange: -3.2,
-    averageOrderValue: 197.2,
-    aovChange: 8.7,
-    inventoryValue: 892340,
-    inventoryChange: 5.4,
-    lowStockItems: 23,
-    outOfStockItems: 7,
-    topSellingCategory: "Electronics",
-    worstPerformingCategory: "Books",
+    totalRevenue: 324750,
+    revenueChange: 15.2,
+    totalOrders: 1584,
+    ordersChange: 8.7,
+    averageOrderValue: 205.1,
+    aovChange: 6.3,
+    inventoryValue: 1240680,
+    inventoryChange: 4.8,
+    lowStockItems: 18,
+    outOfStockItems: 5,
+    topSellingCategory: "T-Shirts",
+    worstPerformingCategory: "Accessories",
+    totalSKUs: 630,
+    newArrivals: 42,
+    seasonalItems: 125,
   }
 
   return (
@@ -36,8 +39,8 @@ export function AnalyticsDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Analytics Dashboard</h1>
-          <p className="text-muted-foreground">Comprehensive insights into your inventory performance</p>
+          <h1 className="text-3xl font-bold">Clothing Analytics Dashboard</h1>
+          <p className="text-muted-foreground">Comprehensive insights into your fashion inventory performance</p>
         </div>
         <div className="flex items-center space-x-2">
           <Select value={timeRange} onValueChange={setTimeRange}>
@@ -90,7 +93,7 @@ export function AnalyticsDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Avg Order Value</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <Shirt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">${kpis.averageOrderValue}</div>
@@ -152,12 +155,11 @@ export function AnalyticsDashboard() {
 
       {/* Analytics Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="sales">Sales</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
-          <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
-          <TabsTrigger value="alerts">Alerts</TabsTrigger>
+          <TabsTrigger value="alerts">Stock Alerts</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -172,9 +174,7 @@ export function AnalyticsDashboard() {
           <CategoryPerformance timeRange={timeRange} />
         </TabsContent>
 
-        <TabsContent value="suppliers" className="space-y-4">
-          <SupplierAnalytics timeRange={timeRange} />
-        </TabsContent>
+
 
         <TabsContent value="alerts" className="space-y-4">
           <StockAlerts />

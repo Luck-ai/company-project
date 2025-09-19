@@ -4,90 +4,116 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Updated color tokens for professional stock management theme */
-  --background: oklch(0.9669 0.016 282.28);
-  --auth-background: #34336a;
-  --auth-foreground: oklch(0.25 0 0);
-  --foreground: oklch(0.25 0 0);
-  --card: #e8e6f9;
-  --card-foreground: oklch(0.3 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.25 0 0);
-  --primary: #514982;
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.96 0 0);
-  --secondary-foreground: oklch(0.3 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.45 0 0);
-  --accent: #514982;
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.92 0 0);
-  --input: oklch(1 0 0);
-  --ring: oklch(0.45 0.15 160 / 0.3);
-  --chart-1: oklch(0.45 0.15 160);
-  --chart-2: oklch(0.55 0.15 160);
-  --chart-3: oklch(0.65 0.12 160);
-  --chart-4: oklch(0.35 0.08 160);
-  --chart-5: oklch(0.6 0.18 40);
+  /* Professional bluish color scheme for corporate inventory management */
+  --background: #f8fafc;
+  --auth-background: #1e3a5f;
+  --auth-foreground: #ffffff;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #1e40af;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #334155;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #3b82f6;
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+  --success: #059669;
+  --success-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #ffffff;
+  --ring: #3b82f6;
+  --chart-1: #1e40af;
+  --chart-2: #3b82f6;
+  --chart-3: #60a5fa;
+  --chart-4: #93c5fd;
+  --chart-5: #dbeafe;
   --radius: 0.5rem;
-  --sidebar: oklch(0.97 0 0);
-  --sidebar-foreground: oklch(0.25 0 0);
-  --sidebar-primary: #514982;
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: #514982;
-  --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-border: oklch(0.92 0 0);
-  --sidebar-ring: oklch(0.45 0.15 160 / 0.3);
-  --ui-card-border: #947cff;
-  --ui-card-bg: #eae9fa;
-  --ui-table-header-border: #7a67ce;
-  --ui-table-row-bg: #e8e6f9;
-  --ui-table-row-border: #aaa3d2;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #1e40af;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #3b82f6;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #3b82f6;
+  
+  /* Professional table styling */
+  --table-header-bg: #1e40af;
+  --table-header-fg: #ffffff;
+  --table-row-even: #f8fafc;
+  --table-row-odd: #ffffff;
+  --table-row-hover: #eff6ff;
+  --table-border: #e2e8f0;
+  
+  /* Status colors */
+  --status-success: #10b981;
+  --status-warning: #f59e0b;
+  --status-danger: #dc2626;
+  --status-info: #3b82f6;
 }
 
 .dark {
-  /* Updated dark mode tokens for professional appearance */
-  --auth-background: oklch(29.8% 0.14275 290.982);
-  --auth-foreground: oklch(0.95 0 0);
-  --background: #14131a;
-  --foreground: oklch(0.95 0 0);
-  --card: #1a1922;
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.08 0 0);
-  --popover-foreground: oklch(0.95 0 0);
-  --primary: #938bbf;
-  --primary-foreground: oklch(0.08 0 0);
-  --secondary: oklch(0.15 0 0);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.15 0 0);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: 
-  --accent-foreground: oklch(0.08 0 0);
-  --destructive: oklch(0.6 0.22 25);
-  --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.15 0 0);
-  --input: oklch(0.15 0 0);
-  --ring: oklch(0.55 0.15 160 / 0.3);
-  --chart-1: oklch(0.55 0.15 160);
-  --chart-2: oklch(0.65 0.15 160);
-  --chart-3: oklch(0.75 0.12 160);
-  --chart-4: oklch(0.45 0.08 160);
-  --chart-5: oklch(0.7 0.18 40);
-  --sidebar: oklch(0.1 0 0);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.55 0.15 160);
-  --sidebar-primary-foreground: oklch(0.08 0 0);
-  --sidebar-accent: oklch(0.6 0.15 160);
-  --sidebar-accent-foreground: oklch(0.08 0 0);
-  --sidebar-border: oklch(0.15 0 0);
-  --sidebar-ring: oklch(0.55 0.15 160 / 0.3);
-  --ui-card-border: #6f5bd6;
-  --ui-card-bg: #2b2938;
-  --ui-table-header-border: #5b4aa8;
-  --ui-table-row-bg: #26242f;
-  --ui-table-row-border: #3d3a4a;
+  /* Professional dark mode with bluish accent */
+  --background: #0f172a;
+  --auth-background: #1e3a5f;
+  --auth-foreground: #ffffff;
+  --foreground: #f8fafc;
+  --card: #1e293b;
+  --card-foreground: #f8fafc;
+  --popover: #1e293b;
+  --popover-foreground: #f8fafc;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #334155;
+  --secondary-foreground: #f8fafc;
+  --muted: #334155;
+  --muted-foreground: #94a3b8;
+  --accent: #60a5fa;
+  --accent-foreground: #0f172a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --border: #334155;
+  --input: #1e293b;
+  --ring: #3b82f6;
+  --chart-1: #3b82f6;
+  --chart-2: #60a5fa;
+  --chart-3: #93c5fd;
+  --chart-4: #bfdbfe;
+  --chart-5: #dbeafe;
+  --sidebar: #1e293b;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #60a5fa;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #334155;
+  --sidebar-ring: #3b82f6;
+  
+  /* Professional table styling for dark mode */
+  --table-header-bg: #1e40af;
+  --table-header-fg: #ffffff;
+  --table-row-even: #1e293b;
+  --table-row-odd: #0f172a;
+  --table-row-hover: #1e3a5f;
+  --table-border: #334155;
+  
+  /* Status colors for dark mode */
+  --status-success: #10b981;
+  --status-warning: #f59e0b;
+  --status-danger: #dc2626;
+  --status-info: #3b82f6;
 }
 
 @theme inline {
@@ -143,12 +169,104 @@
 @layer utilities {
   .bg-auth-background { background-color: var(--auth-background) !important; }
   .text-auth-foreground { color: var(--auth-foreground) !important; }
-  /* Auth hero background: purple gradient with subtle vignette */
-  .auth-hero {
-    background: radial-gradient(1200px 600px at 10% 20%, rgba(81,73,130,0.6), transparent 10%),
-                radial-gradient(1000px 500px at 90% 80%, rgba(81,73,130,0.45), transparent 18%),
-                linear-gradient(180deg, #2b244b 0%, #2e244f 40%, #24163a 100%);
-    background-size: cover;
-    background-position: center;
+  
+  /* Professional table styles */
+  .table-header {
+    background-color: var(--table-header-bg);
+    color: var(--table-header-fg);
+  }
+  
+  .table-row-even {
+    background-color: var(--table-row-even);
+  }
+  
+  .table-row-odd {
+    background-color: var(--table-row-odd);
+  }
+  
+  .table-row-hover:hover {
+    background-color: var(--table-row-hover);
+  }
+  
+  .table-border {
+    border-color: var(--table-border);
+  }
+  
+  /* Professional status colors */
+  .status-success {
+    background-color: var(--status-success);
+    color: white;
+  }
+  
+  .status-warning {
+    background-color: var(--status-warning);
+    color: white;
+  }
+  
+  .status-danger {
+    background-color: var(--status-danger);
+    color: white;
+  }
+  
+  .status-info {
+    background-color: var(--status-info);
+    color: white;
+  }
+  
+  /* Professional card styling */
+  .professional-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+  
+  .professional-card-header {
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(to bottom, var(--card), var(--secondary));
+  }
+  
+  /* Corporate blue gradient backgrounds */
+  .corporate-gradient {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%);
+  }
+  
+  .corporate-gradient-subtle {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 50%, #bfdbfe 100%);
+  }
+  
+  /* Professional button variants */
+  .btn-corporate {
+    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+    color: white;
+    border: none;
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }
+  
+  .btn-corporate:hover {
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  }
+  
+  /* Professional spacing */
+  .professional-spacing {
+    padding: 1.5rem;
+  }
+  
+  .professional-spacing-sm {
+    padding: 1rem;
+  }
+  
+  .professional-spacing-lg {
+    padding: 2rem;
+  }
+  
+  /* Corporate header styling */
+  .corporate-header {
+    background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 100%);
+    color: white;
+    border-bottom: 3px solid #3b82f6;
   }
 }

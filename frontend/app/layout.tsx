@@ -5,7 +5,6 @@ import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ToastProvider } from '@/lib/use-toast'
-import { AuthProvider } from '@/components/auth/auth-provider'
 import { Suspense } from "react"
 import "./globals.css"
 
@@ -33,11 +32,9 @@ export default function RootLayout({
             disableTransitionOnChange={false}
             storageKey="stock-manager-theme"
           >
-            <AuthProvider>
-              <ToastProvider>
-                {children}
-              </ToastProvider>
-            </AuthProvider>
+            <ToastProvider>
+              {children}
+            </ToastProvider>
           </ThemeProvider>
         </Suspense>
         <Analytics />
