@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { BarChart3, FileText, Bell, Home, Warehouse } from "lucide-react"
+import { BarChart3, FileText, Bell, Home, Warehouse, PieChart } from "lucide-react"
 
 const navItems = [
   {
@@ -17,9 +17,9 @@ const navItems = [
     icon: Warehouse,
   },
   {
-    title: "Analytics",
-    href: "/dashboard/analytics",
-    icon: BarChart3,
+    title: "Inventory Summary",
+    href: "/dashboard/inventory",
+    icon: PieChart,
   },
   {
     title: "Notifications",

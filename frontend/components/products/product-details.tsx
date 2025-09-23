@@ -154,13 +154,27 @@ export function ProductDetails({ productId }: ProductDetailsProps) {
     )
   }
 
+  const safeBack = () => {
+    try {
+      // If there is navigation history, go back. Otherwise, push to the stock list.
+      if (typeof window !== 'undefined' && window.history && window.history.length > 1) {
+        router.back()
+      } else {
+        router.push('/dashboard/stock')
+      }
+    } catch (err) {
+      // Fallback to push in case router.back() fails
+      router.push('/dashboard/stock')
+    }
+  }
+
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <p className="text-destructive mb-2">Error loading product</p>
           <p className="text-muted-foreground text-sm">{error}</p>
-          <Button variant="outline" onClick={() => router.back()} className="mt-4">
+          <Button variant="outline" onClick={safeBack} className="mt-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Go Back
           </Button>
@@ -174,7 +188,7 @@ export function ProductDetails({ productId }: ProductDetailsProps) {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <p className="text-muted-foreground mb-2">Product not found</p>
-          <Button variant="outline" onClick={() => router.back()}>
+          <Button variant="outline" onClick={safeBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Go Back
           </Button>
@@ -204,7 +218,7 @@ export function ProductDetails({ productId }: ProductDetailsProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" size="sm" onClick={() => router.back()}>
+          <Button variant="ghost" size="sm" onClick={safeBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
