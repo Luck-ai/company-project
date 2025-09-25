@@ -25,61 +25,42 @@ export function SalesChart({ productId, salesData: propSalesData, refreshTrigger
   const [salesData, setSalesData] = useState<SalesRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isDark, setIsDark] = useState(false)
 
-  // Generate mock sales data for frontend-only system
-  const generateMockSalesData = (productId: string): SalesRecord[] => {
-    const salesData: SalesRecord[] = []
-    const currentDate = new Date()
-    
-    // Generate 3-6 months of sales data
-    for (let monthsBack = 5; monthsBack >= 0; monthsBack--) {
-      const salesDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - monthsBack, 1)
-      
-      // Generate 2-8 sales per month
-      const salesCount = Math.floor(Math.random() * 7) + 2
-      
-      for (let i = 0; i < salesCount; i++) {
-        const dayOffset = Math.floor(Math.random() * 28) + 1
-        const saleDate = new Date(salesDate.getFullYear(), salesDate.getMonth(), dayOffset)
-        
-        salesData.push({
-          id: Math.floor(Math.random() * 10000),
-          product_id: parseInt(productId),
-          user_id: 1,
-          quantity: Math.floor(Math.random() * 5) + 1,
-          sale_price: Math.floor(Math.random() * 100) + 20,
-          sale_date: saleDate.toISOString().split('T')[0]
-        })
-      }
-    }
-    
-    return salesData
-  }
-
-  // Fetch sales data (now uses mock data)
-  useEffect(() => {
-    if (!productId || propSalesData) return
-
-    const fetchSalesData = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 300))
-        
-        // Generate mock sales data
-        const mockData = generateMockSalesData(productId)
-        setSalesData(mockData)
-      } catch (err) {
-        console.error('Error generating mock sales data:', err)
-        setError(err instanceof Error ? err.message : 'Failed to load sales data')
-      } finally {
+    // Do not generate mock sales data. If `propSalesData` is provided from the parent
+    // (backend), use it. Otherwise, keep local state empty and show the empty state.
+    useEffect(() => {
+      // If parent provided sales data, avoid local fetching/generation.
+      if (Array.isArray(propSalesData)) {
+        setSalesData(propSalesData as SalesRecord[])
         setLoading(false)
+        setError(null)
+      } else {
+        // Clear any previously set local data so mock data is never used.
+        setSalesData([])
+        setLoading(false)
+        setError(null)
+      }
+    }, [propSalesData, refreshTrigger])
+
+  // Detect dark mode for chart color adjustments
+  useEffect(() => {
+    const detect = () => {
+      try {
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        const htmlHasDark = document && document.documentElement && document.documentElement.classList.contains('dark')
+        setIsDark(!!(htmlHasDark || prefersDark))
+      } catch (e) {
+        setIsDark(false)
       }
     }
-
-    fetchSalesData()
-  }, [productId, propSalesData, refreshTrigger])
+    detect()
+    // optional: listen for changes
+    const mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)')
+    const listener = (ev: MediaQueryListEvent) => setIsDark(ev.matches)
+    if (mq && mq.addEventListener) mq.addEventListener('change', listener)
+    return () => { if (mq && mq.removeEventListener) mq.removeEventListener('change', listener) }
+  }, [])
 
   // Transform real sales data into chart format
   const transformSalesData = (sales: SalesRecord[]) => {
@@ -122,7 +103,7 @@ export function SalesChart({ productId, salesData: propSalesData, refreshTrigger
     return (
       <div className="flex items-center justify-center h-[300px] text-center">
         <div>
-          <div className="text-muted-foreground mb-2">Loading sales data...</div>
+          <div className="text-muted-foreground dark:text-gray-300 mb-2">Loading sales data...</div>
         </div>
       </div>
     )
@@ -134,7 +115,7 @@ export function SalesChart({ productId, salesData: propSalesData, refreshTrigger
       <div className="flex items-center justify-center h-[300px] text-center">
         <div>
           <div className="text-destructive mb-2">Error loading sales data</div>
-          <p className="text-sm text-muted-foreground">{error}</p>
+          <p className="text-sm text-muted-foreground dark:text-gray-300">{error}</p>
         </div>
       </div>
     )
@@ -145,12 +126,15 @@ export function SalesChart({ productId, salesData: propSalesData, refreshTrigger
     return (
       <div className="flex items-center justify-center h-[300px] text-center">
         <div>
-          <div className="text-muted-foreground mb-2">No sales data available</div>
-          <p className="text-sm text-muted-foreground">Record sales or upload CSV data to see charts</p>
+          <div className="text-muted-foreground dark:text-gray-300 mb-2">No sales data available</div>
+          <p className="text-sm text-muted-foreground dark:text-gray-300">Record sales or upload CSV data to see charts</p>
         </div>
       </div>
     )
   }
+  const axisColor = isDark ? '#94a3b8' : '#6b7280' // slate-400 / gray-500
+  const gridStroke = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Card>
@@ -170,9 +154,9 @@ export function SalesChart({ productId, salesData: propSalesData, refreshTrigger
           >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={displayData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                <XAxis dataKey="month" tick={{ fill: axisColor }} axisLine={{ stroke: axisColor }} />
+                <YAxis tick={{ fill: axisColor }} axisLine={{ stroke: axisColor }} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="sales" fill="var(--color-chart-1)" />
               </BarChart>
@@ -198,9 +182,9 @@ export function SalesChart({ productId, salesData: propSalesData, refreshTrigger
           >
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={displayData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                <XAxis dataKey="month" tick={{ fill: axisColor }} axisLine={{ stroke: axisColor }} />
+                <YAxis tick={{ fill: axisColor }} axisLine={{ stroke: axisColor }} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Line type="monotone" dataKey="revenue" stroke="var(--color-chart-2)" strokeWidth={2} />
               </LineChart>

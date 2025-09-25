@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { apiFetch } from '@/lib/api'
+import { Loader2 } from "lucide-react"
 
 type UploadCSVProps = {
   url: string
@@ -37,8 +38,17 @@ export default function UploadCSV({ url, label = "Upload CSV", accept = ".csv" }
         body: fd,
       })
       if (!res.ok) {
-        const text = await res.text()
-        throw new Error(text || res.statusText)
+        const errorText = await res.text()
+        let errorMessage = errorText || res.statusText
+        try {
+          const errorJson = JSON.parse(errorText)
+          if (errorJson.detail) {
+            errorMessage = errorJson.detail
+          }
+        } catch {
+          // Use the text as is
+        }
+        throw new Error(errorMessage)
       }
       const data = await res.json()
       const resultsData = data.results ?? data
@@ -83,11 +93,19 @@ export default function UploadCSV({ url, label = "Upload CSV", accept = ".csv" }
         </span>
 
         <div className="ml-auto">
-          <Button onClick={upload} disabled={!file || loading}>{label}</Button>
+          <Button onClick={upload} disabled={!file || loading}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading ? 'Uploading...' : label}
+          </Button>
         </div>
       </div>
 
-      {loading ? <div>Uploading...</div> : null}
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-blue-600">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Uploading and processing file...</span>
+        </div>
+      ) : null}
       {error ? <div className="text-red-600">{error}</div> : null}
 
       {results ? (

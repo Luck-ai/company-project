@@ -1,147 +1,23 @@
-version: '3.8'
-
 services:
-  # Next.js Frontend Service
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
-      target: runner
     container_name: stock-management-frontend
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-    networks:
-      - stock-management-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Frontend Development Service (alternative to frontend for development)
-  frontend-dev:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: deps
-    container_name: stock-management-frontend-dev
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=development
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
-    command: npm run dev
-    networks:
-      - stock-management-network
-    profiles:
-      - development
-
-  # Electron Desktop Application (Development)
-  electron-dev:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.electron
-      target: development
-    container_name: stock-management-electron-dev
-    ports:
-      - "3001:3000"  # Next.js dev server
-      - "5900:5900"  # VNC server
-      - "6080:6080"  # noVNC web interface
-    environment:
-      - NODE_ENV=development
-      - DISPLAY=:99
-      - NEXT_URL=http://localhost:3001
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    networks:
-      - stock-management-network
-    profiles:
-      - electron-dev
-    depends_on:
-      - frontend-dev
-
-  # Electron Desktop Application (Production)
-  electron:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.electron
-      target: production
-    container_name: stock-management-electron
-    ports:
-      - "3000:3000"  # Next.js server
-      - "5900:5900"  # VNC server
-      - "6080:6080"  # noVNC web interface
-    environment:
-      - NODE_ENV=production
-      - DISPLAY=:99
-      - NEXT_URL=http://localhost:3000
-    networks:
-      - stock-management-network
-    profiles:
-      - electron
-    restart: unless-stopped
-
-  # Optional: Nginx reverse proxy for production
-  nginx:
-    image: nginx:alpine
-    container_name: stock-management-nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - frontend
-    networks:
-      - stock-management-network
-    profiles:
-      - production
-    restart: unless-stopped
-
-  # Optional: Redis for caching (if needed in future)
-  redis:
-    image: redis:7-alpine
-    container_name: stock-management-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - stock-management-network
-    profiles:
-      - production
-    restart: unless-stopped
-
-networks:
-  stock-management-network:
-    driver: bridge
+  
+  db:
+      image: postgres:15
+      environment:
+        POSTGRES_USER: lucky
+        POSTGRES_PASSWORD: lucky
+        POSTGRES_DB: inventory_db
+      volumes:
+        - db-data:/var/lib/postgresql/data
+      ports:
+        - 5432:5432
 
 volumes:
-  redis_data:
-    driver: local
-
-# Usage Examples:
-# Development:
-#   docker-compose --profile development up frontend-dev
-# 
-# Electron Development:
-#   docker-compose --profile electron-dev up electron-dev
-#   Access GUI via browser: http://localhost:6080
-# 
-# Production Frontend Only:
-#   docker-compose up frontend
-# 
-# Production with Electron:
-#   docker-compose --profile electron up electron
-# 
-# Full Production Stack:
-#   docker-compose --profile production up
+  db-data:

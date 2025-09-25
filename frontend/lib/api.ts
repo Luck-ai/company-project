@@ -1,220 +1,23 @@
 export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'
 
-// ========================================
-// ORIGINAL BACKEND INTEGRATION (COMMENTED OUT)
-// ========================================
-// Uncomment the functions below and comment out the mock functions to re-enable backend integration
-
-/*
 export async function apiFetch(path: string, options: RequestInit = {}) {
   const headers: Record<string, string> = { ...(options.headers as Record<string, string> || {}) }
-  
-  // If the caller provided a body, don't overwrite Content-Type when the body is a FormData
-  // The browser will set the correct multipart/form-data boundary header for FormData
   const body = (options as any).body
   if (!headers['Content-Type'] && body && !(body instanceof FormData)) {
     headers['Content-Type'] = 'application/json'
   }
   
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+  console.log(`API Request: ${options.method || 'GET'} ${API_BASE}${path}`)
+  if (body instanceof FormData) {
+    console.log('FormData upload detected')
+  }
   
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+  console.log(`API Response: ${res.status} ${res.statusText}`)
   return res
 }
 
-// Original Restock API functions
-export async function getLowStockProducts(): Promise<Product[]> {
-  const res = await apiFetch('/restock/low-stock')
-  if (!res.ok) {
-    throw new Error('Failed to fetch low stock products')
-  }
-  return res.json()
-}
-
-export async function getOutOfStockProducts(): Promise<Product[]> {
-  const res = await apiFetch('/restock/out-of-stock')
-  if (!res.ok) {
-    throw new Error('Failed to fetch out of stock products')
-  }
-  return res.json()
-}
-
-export async function getRestockSummary(): Promise<RestockSummary> {
-  const res = await apiFetch('/restock/summary')
-  if (!res.ok) {
-    throw new Error('Failed to fetch restock summary')
-  }
-  return res.json()
-}
-
-export async function createPurchaseOrder(order: PurchaseOrderCreate): Promise<PurchaseOrder> {
-  const res = await apiFetch('/restock/orders', {
-    method: 'POST',
-    body: JSON.stringify(order),
-  })
-  if (!res.ok) {
-    throw new Error('Failed to create purchase order')
-  }
-  return res.json()
-}
-
-export async function getPurchaseOrders(status?: string): Promise<PurchaseOrder[]> {
-  const params = status ? `?status=${encodeURIComponent(status)}` : ''
-  const res = await apiFetch(`/restock/orders${params}`)
-  if (!res.ok) {
-    throw new Error('Failed to fetch purchase orders')
-  }
-  return res.json()
-}
-
-export async function getPurchaseOrder(id: number): Promise<PurchaseOrder> {
-  const res = await apiFetch(`/restock/orders/${id}`)
-  if (!res.ok) {
-    throw new Error('Failed to fetch purchase order')
-  }
-  return res.json()
-}
-
-export async function updatePurchaseOrder(id: number, updates: Partial<PurchaseOrder>): Promise<PurchaseOrder> {
-  const res = await apiFetch(`/restock/orders/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(updates),
-  })
-  if (!res.ok) {
-    throw new Error('Failed to update purchase order')
-  }
-  return res.json()
-}
-
-export async function deletePurchaseOrder(id: number): Promise<{ ok: boolean }> {
-  const res = await apiFetch(`/restock/orders/${id}`, {
-    method: 'DELETE',
-  })
-  if (!res.ok) {
-    throw new Error('Failed to delete purchase order')
-  }
-  return res.json()
-}
-
-// Original Products API functions
-export async function getProducts(): Promise<Product[]> {
-  const res = await apiFetch('/products')
-  if (!res.ok) {
-    throw new Error('Failed to fetch products')
-  }
-  return res.json()
-}
-
-export async function getSuppliers(): Promise<Supplier[]> {
-  const res = await apiFetch('/suppliers')
-  if (!res.ok) {
-    throw new Error('Failed to fetch suppliers')
-  }
-  return res.json()
-}
-*/
-
-// ========================================
-// MOCK DATA & FUNCTIONS (CURRENTLY ACTIVE)
-// ========================================
-// Comment out the functions below and uncomment the backend integration above to use real API
-
-// Mock data for clothing company
-const mockCategories: ProductCategory[] = [
-  { id: 1, name: "T-Shirts", description: "Basic and graphic t-shirts", user_id: 1 },
-  { id: 2, name: "Jeans", description: "Denim jeans and pants", user_id: 1 },
-  { id: 3, name: "Hoodies", description: "Hooded sweatshirts and pullovers", user_id: 1 },
-  { id: 4, name: "Dresses", description: "Casual and formal dresses", user_id: 1 },
-  { id: 5, name: "Jackets", description: "Outerwear and jackets", user_id: 1 },
-  { id: 6, name: "Accessories", description: "Belts, hats, and other accessories", user_id: 1 }
-]
-
-// Generate clothing products with various sizes and stock levels
-const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL']
-const colors = ['Black', 'White', 'Navy', 'Gray', 'Red', 'Blue', 'Green', 'Pink', 'Brown']
-const brands = ['StyleCo', 'TrendWear', 'UrbanFit', 'ClassicThread', 'ModernLook']
-
-const generateSKU = (productType: string, color: string, size: string, id: number) => {
-  const typeCode = productType.slice(0, 2).toUpperCase()
-  const colorCode = color.slice(0, 3).toUpperCase()
-  const sizeCode = size
-  return `${typeCode}-${colorCode}-${sizeCode}-${id.toString().padStart(3, '0')}`
-}
-
-const mockProducts: Product[] = []
-
-// Generate sample clothing products
-const baseProducts = [
-  { name: "Classic Cotton T-Shirt", category_id: 1, price: 19.99, description: "100% cotton basic tee" },
-  { name: "Graphic Print Tee", category_id: 1, price: 24.99, description: "Trendy graphic design t-shirt" },
-  { name: "Slim Fit Jeans", category_id: 2, price: 79.99, description: "Modern slim fit denim" },
-  { name: "Vintage Wash Jeans", category_id: 2, price: 89.99, description: "Distressed vintage style" },
-  { name: "Pullover Hoodie", category_id: 3, price: 49.99, description: "Comfortable cotton hoodie" },
-  { name: "Zip-Up Hoodie", category_id: 3, price: 54.99, description: "Full zip hooded sweatshirt" },
-  { name: "Summer Dress", category_id: 4, price: 69.99, description: "Light floral summer dress" },
-  { name: "Evening Dress", category_id: 4, price: 129.99, description: "Elegant evening wear" },
-  { name: "Denim Jacket", category_id: 5, price: 79.99, description: "Classic denim jacket" },
-  { name: "Bomber Jacket", category_id: 5, price: 99.99, description: "Modern bomber style jacket" }
-]
-
-let productId = 1
-for (const baseProduct of baseProducts) {
-  for (const size of sizes) {
-    for (const color of colors.slice(0, 3)) { // Limit colors to keep dataset manageable for demo
-      const sku = generateSKU(baseProduct.name, color, size, productId)
-      // Vary stock levels to show different statuses
-      let quantity = 0
-      let lowStockThreshold = 10
-      
-      // Create varied stock levels for demonstration
-      const stockVariation = Math.random()
-      if (stockVariation < 0.1) {
-        quantity = 0 // 10% out of stock
-      } else if (stockVariation < 0.25) {
-        quantity = Math.floor(Math.random() * 5) + 1 // 15% low stock (1-5 items)
-        lowStockThreshold = 10
-      } else {
-        quantity = Math.floor(Math.random() * 200) + 20 // 75% normal stock (20-220 items)
-        lowStockThreshold = 15
-      }
-
-      mockProducts.push({
-        id: productId,
-        name: `${baseProduct.name} - ${color}`,
-        sku,
-        category_id: baseProduct.category_id,
-        description: baseProduct.description,
-        price: baseProduct.price,
-        quantity,
-        low_stock_threshold: lowStockThreshold,
-        size,
-        color,
-        material: "Cotton Blend",
-        brand: brands[Math.floor(Math.random() * brands.length)],
-        user_id: 1,
-        last_updated: "2024-01-15",
-        category: mockCategories.find(c => c.id === baseProduct.category_id) || null
-      })
-      productId++
-    }
-  }
-}
-
-const mockPurchaseOrders: PurchaseOrder[] = [
-  { id: 1, user_id: 1, product_id: 2, quantity_ordered: 50, status: "pending", order_date: "2024-01-15", notes: "Urgent restock needed", product: mockProducts[1] },
-  { id: 2, user_id: 1, product_id: 5, quantity_ordered: 25, status: "pending", order_date: "2024-01-14", notes: "Low stock alert", product: mockProducts[4] },
-  { id: 3, user_id: 1, product_id: 8, quantity_ordered: 100, status: "completed", order_date: "2024-01-10", notes: "Regular restock", product: mockProducts[7] }
-]
-
-// Simulate API delay for realistic feel
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-
-// Mock apiFetch function
-export async function apiFetch(path: string, options: RequestInit = {}) {
-  await delay(100) // Simulate network delay
-  return new Response(JSON.stringify({}), { status: 200 })
-}
-
-// Types for clothing inventory system
+// Types used by the frontend
 export interface Product {
   id: number
   name: string
@@ -222,9 +25,13 @@ export interface Product {
   category_id: number | null
   description: string | null
   price: number
+  // legacy mock field
   quantity: number
+  // backend authoritative stock field
+  stock_level?: number
   low_stock_threshold: number
-  size: string // S, M, L, XL, XXL, 3XL, etc.
+  size: string
+  // color as stored in the backend product table
   color?: string
   material?: string
   brand?: string
@@ -240,29 +47,21 @@ export interface ProductCategory {
   user_id: number | null
 }
 
-export interface PurchaseOrder {
-  id: number
-  user_id: number
-  product_id: number
-  quantity_ordered: number
-  status: string
-  order_date: string | null
-  notes: string | null
-  product: Product | null
+export interface Sale {
+  sale_id: number
+  channel: string
+  date: string
+  sku: string
+  quantity: number
+  created_at?: string
 }
 
-export interface PurchaseOrderCreate {
-  product_id: number
-  quantity_ordered: number
-  status?: string
-  notes?: string | null
-}
-
-export interface RestockSummary {
-  pending_orders: number
-  low_stock_items: number
-  out_of_stock_items: number
-  total_pending_value: number
+export interface SalesAnalysis {
+  totalSales: number
+  lastSaleDate: string | null
+  daysSinceLastSale: number
+  averageDailySales: number
+  isActive: boolean
 }
 
 export interface FileUploadData {
@@ -270,128 +69,409 @@ export interface FileUploadData {
   stock_file?: File
 }
 
-// Mock API functions - return static data for UI development
+// -----------------------------
+// Mock data & simple helpers
+// -----------------------------
+const mockCategories: ProductCategory[] = [
+  { id: 1, name: 'T-Shirts', description: 'Basic and graphic t-shirts', user_id: 1 },
+  { id: 2, name: 'Jeans', description: 'Denim jeans and pants', user_id: 1 },
+  { id: 3, name: 'Hoodies', description: 'Hooded sweatshirts and pullovers', user_id: 1 },
+  { id: 4, name: 'Dresses', description: 'Casual and formal dresses', user_id: 1 },
+  { id: 5, name: 'Jackets', description: 'Outerwear and jackets', user_id: 1 },
+  { id: 6, name: 'Accessories', description: 'Belts, hats, and other accessories', user_id: 1 }
+]
+
+const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL']
+const brands = ['StyleCo', 'TrendWear', 'UrbanFit', 'ClassicThread', 'ModernLook']
+
+const generateSKU = (productType: string, size: string, id: number) => {
+  const typeCode = productType.slice(0, 2).toUpperCase()
+  return `${typeCode}-${size}-${id.toString().padStart(3, '0')}`
+}
+
+const mockProducts: Product[] = []
+const baseProducts = [
+  { name: 'Classic Cotton T-Shirt', category_id: 1, price: 19.99, description: '100% cotton basic tee' },
+  { name: 'Graphic Print Tee', category_id: 1, price: 24.99, description: 'Trendy graphic design t-shirt' },
+  { name: 'Slim Fit Jeans', category_id: 2, price: 79.99, description: 'Modern slim fit denim' },
+  { name: 'Vintage Wash Jeans', category_id: 2, price: 89.99, description: 'Distressed vintage style' },
+  { name: 'Pullover Hoodie', category_id: 3, price: 49.99, description: 'Comfortable cotton hoodie' },
+  { name: 'Zip-Up Hoodie', category_id: 3, price: 54.99, description: 'Full zip hooded sweatshirt' },
+  { name: 'Summer Dress', category_id: 4, price: 69.99, description: 'Light floral summer dress' },
+  { name: 'Evening Dress', category_id: 4, price: 129.99, description: 'Elegant evening wear' },
+  { name: 'Denim Jacket', category_id: 5, price: 79.99, description: 'Classic denim jacket' },
+  { name: 'Bomber Jacket', category_id: 5, price: 99.99, description: 'Modern bomber style jacket' }
+]
+
+let productId = 1
+for (const baseProduct of baseProducts) {
+  for (const size of sizes) {
+    const sku = generateSKU(baseProduct.name, size, productId)
+    let quantity = 0
+    let lowStockThreshold = 10
+    const stockVariation = Math.random()
+    if (stockVariation < 0.1) {
+      quantity = 0
+    } else if (stockVariation < 0.25) {
+      quantity = Math.floor(Math.random() * 5) + 1
+      lowStockThreshold = 10
+    } else {
+      quantity = Math.floor(Math.random() * 200) + 20
+      lowStockThreshold = 15
+    }
+
+    mockProducts.push({
+      id: productId,
+      name: baseProduct.name,
+      sku,
+      category_id: baseProduct.category_id,
+      description: baseProduct.description || null,
+      price: (baseProduct as any).price || 0,
+      quantity,
+      low_stock_threshold: lowStockThreshold,
+      size,
+      material: 'Cotton Blend',
+      brand: brands[Math.floor(Math.random() * brands.length)],
+      user_id: 1,
+      last_updated: '2024-01-15',
+      category: mockCategories.find(c => c.id === baseProduct.category_id) || null
+    })
+    productId++
+  }
+}
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+type DataSourceKey = 'mock' | 'company1' | 'company2' | 'pajara'
+
+const createVariantProducts = (base: Product[], companyTag: string, qtyOffset = 0) => {
+  return base.map(p => ({
+    ...p,
+    id: Number(String(p.id) + (companyTag === 'company1' ? '1' : '2')),
+    sku: `${p.sku}-${companyTag.slice(-1).toUpperCase()}`,
+    name: `${p.name} (${companyTag})`,
+    brand: p.brand ? `${companyTag}-${p.brand}` : companyTag,
+    quantity: Math.max(0, p.quantity + qtyOffset + (companyTag === 'company1' ? -5 : 10)),
+    category: p.category ? { ...p.category, name: `${p.category.name}` } : p.category
+  }))
+}
+
+const company1Products = createVariantProducts(mockProducts, 'company1', -3)
+const company2Products = createVariantProducts(mockProducts, 'company2', 5)
+
+const dataSources: Record<DataSourceKey, Product[]> = {
+  mock: mockProducts,
+  company1: company1Products,
+  company2: company2Products,
+  pajara: []
+}
+
+// Initialize current data source. Preference order:
+// 1. localStorage (if available and valid)
+// 2. environment variable NEXT_PUBLIC_DATA_SOURCE (set at build/runtime)
+// 3. fallback to 'mock'
+let currentDataSource: DataSourceKey = 'mock'
+try {
+  if (typeof window !== 'undefined') {
+    const saved = window.localStorage.getItem('inventoryDataSource')
+    if (saved === 'company1' || saved === 'company2' || saved === 'mock' || saved === 'pajara') {
+      currentDataSource = saved as DataSourceKey
+    } else {
+      const envDefault = (process.env.NEXT_PUBLIC_DATA_SOURCE as DataSourceKey) || undefined
+      if (envDefault === 'company1' || envDefault === 'company2' || envDefault === 'mock' || envDefault === 'pajara') {
+        currentDataSource = envDefault
+      }
+    }
+  } else {
+    // On server, prefer build-time env variable if present
+    const envDefault = (process.env.NEXT_PUBLIC_DATA_SOURCE as DataSourceKey) || undefined
+    if (envDefault === 'company1' || envDefault === 'company2' || envDefault === 'mock' || envDefault === 'pajara') {
+      currentDataSource = envDefault
+    }
+  }
+} catch (e) {
+  // If anything fails (e.g. localStorage disabled), fall back to default
+  currentDataSource = 'mock'
+}
+
+export function setDataSource(source: DataSourceKey) {
+  if (source === 'pajara' || dataSources[source]) {
+    currentDataSource = source as any
+    console.log(`Data source changed to: ${currentDataSource}`)
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('inventoryDataSource', currentDataSource)
+      }
+    } catch (e) {
+      // ignore localStorage write failures
+    }
+  }
+}
+
+export function getDataSource(): DataSourceKey {
+  return currentDataSource
+}
+
+// Debug function to check current state
+export function debugDataSource() {
+  console.log('Current data source:', currentDataSource)
+  console.log('Available sources:', Object.keys(dataSources))
+  console.log('API_BASE:', API_BASE)
+  return { currentDataSource, API_BASE, availableSources: Object.keys(dataSources) }
+}
+
+// Mock helpers for restock/out-of-stock views (client-side only)
 export async function getLowStockProducts(): Promise<Product[]> {
   await delay(200)
-  return mockProducts.filter(p => p.quantity <= p.low_stock_threshold && p.quantity > 0)
+  const ds = dataSources[currentDataSource]
+  return ds.filter(p => p.quantity <= p.low_stock_threshold && p.quantity > 0)
 }
 
 export async function getOutOfStockProducts(): Promise<Product[]> {
   await delay(200)
-  return mockProducts.filter(p => p.quantity === 0)
+  const ds = dataSources[currentDataSource]
+  return ds.filter(p => p.quantity === 0)
 }
 
-export async function getRestockSummary(): Promise<RestockSummary> {
-  await delay(150)
-  const lowStock = mockProducts.filter(p => p.quantity <= p.low_stock_threshold && p.quantity > 0)
-  const outOfStock = mockProducts.filter(p => p.quantity === 0)
-  const pendingOrders = mockPurchaseOrders.filter(po => po.status === 'pending')
-  
-  return {
-    pending_orders: pendingOrders.length,
-    low_stock_items: lowStock.length,
-    out_of_stock_items: outOfStock.length,
-    total_pending_value: pendingOrders.reduce((sum, po) => {
-      const product = mockProducts.find(p => p.id === po.product_id)
-      return sum + (product ? product.price * po.quantity_ordered : 0)
-    }, 0)
+// Products/Categories - call backend only when using 'pajara'
+export async function getProducts(filters?: { category_id?: number | null; size?: string | null; color?: string | null }): Promise<Product[]> {
+  if (currentDataSource === 'pajara') {
+    const params = new URLSearchParams()
+    if (filters) {
+      if (filters.category_id != null) params.set('category_id', String(filters.category_id))
+      if (filters.size) params.set('size', filters.size)
+      if (filters.color) params.set('color', filters.color)
+    }
+    const path = params.toString() ? `/products?${params.toString()}` : '/products'
+    const res = await apiFetch(path)
+    if (!res.ok) throw new Error('Failed to fetch products')
+    return res.json()
   }
+  await delay(200)
+  return dataSources[currentDataSource]
 }
 
-export async function createPurchaseOrder(order: PurchaseOrderCreate): Promise<PurchaseOrder> {
-  await delay(300)
-  const newOrder: PurchaseOrder = {
-    id: mockPurchaseOrders.length + 1,
-    user_id: 1,
-    product_id: order.product_id,
-    quantity_ordered: order.quantity_ordered,
-    status: order.status || 'pending',
-    order_date: new Date().toISOString().split('T')[0],
-    notes: order.notes || null,
-    product: mockProducts.find(p => p.id === order.product_id) || null
+// Fetch available sizes and colors from the backend (pajara). This will fetch
+// products and derive distinct values. We intentionally keep this in the
+// frontend so the client can populate filter dropdowns without requiring
+// new backend endpoints.
+export async function getAvailableSizesAndColors(): Promise<{ sizes: string[]; colors: string[] }> {
+  if (currentDataSource === 'pajara') {
+    // Prefer dedicated facets endpoint to avoid fetching all products
+    const res = await apiFetch('/products/facets')
+    if (!res.ok) throw new Error('Failed to fetch product facets')
+    const json = await res.json()
+    return { sizes: json.sizes || [], colors: json.colors || [] }
   }
-  mockPurchaseOrders.push(newOrder)
-  return newOrder
-}
-
-export async function getPurchaseOrders(status?: string): Promise<PurchaseOrder[]> {
-  await delay(200)
-  if (status) {
-    return mockPurchaseOrders.filter(po => po.status === status)
-  }
-  return mockPurchaseOrders
-}
-
-export async function getPurchaseOrder(id: number): Promise<PurchaseOrder> {
-  await delay(150)
-  const order = mockPurchaseOrders.find(po => po.id === id)
-  if (!order) throw new Error('Purchase order not found')
-  return order
-}
-
-export async function updatePurchaseOrder(id: number, updates: Partial<PurchaseOrder>): Promise<PurchaseOrder> {
-  await delay(250)
-  const orderIndex = mockPurchaseOrders.findIndex(po => po.id === id)
-  if (orderIndex === -1) throw new Error('Purchase order not found')
-  
-  mockPurchaseOrders[orderIndex] = { ...mockPurchaseOrders[orderIndex], ...updates }
-  return mockPurchaseOrders[orderIndex]
-}
-
-export async function deletePurchaseOrder(id: number): Promise<{ ok: boolean }> {
-  await delay(200)
-  const orderIndex = mockPurchaseOrders.findIndex(po => po.id === id)
-  if (orderIndex === -1) throw new Error('Purchase order not found')
-  
-  mockPurchaseOrders.splice(orderIndex, 1)
-  return { ok: true }
-}
-
-// Products API functions
-export async function getProducts(): Promise<Product[]> {
-  await delay(200)
-  return mockProducts
+  // For non-pajara data, return empty arrays so the caller can fall back to local values
+  return { sizes: [], colors: [] }
 }
 
 export async function getCategories(): Promise<ProductCategory[]> {
+  if (currentDataSource === 'pajara') {
+    const res = await apiFetch('/categories')
+    if (!res.ok) throw new Error('Failed to fetch categories')
+    return res.json()
+  }
   await delay(150)
   return mockCategories
 }
 
-// File upload functions
-export async function uploadSalesData(file: File): Promise<{ success: boolean; message: string }> {
-  await delay(2000) // Simulate longer upload time
+// Sales API functions
+export async function getAllSales(): Promise<Sale[]> {
+  if (currentDataSource === 'pajara') {
+    const res = await apiFetch('/sales/')
+    if (!res.ok) throw new Error('Failed to fetch sales data')
+    return res.json()
+  }
+  // For mock data, generate some sample sales
+  await delay(200)
+  return generateMockSales()
+}
+
+export async function getSalesBySku(sku: string): Promise<Sale[]> {
+  if (currentDataSource === 'pajara') {
+    const res = await apiFetch(`/sales/${encodeURIComponent(sku)}`)
+    if (!res.ok) throw new Error('Failed to fetch sales data for SKU')
+    return res.json()
+  }
+  // For mock data, generate sample sales for this SKU
+  await delay(150)
+  return generateMockSalesForSku(sku)
+}
+
+// Analyze sales data to determine if a product is active
+export function analyzeSalesData(sales: Sale[]): SalesAnalysis {
+  if (sales.length === 0) {
+    return {
+      totalSales: 0,
+      lastSaleDate: null,
+      daysSinceLastSale: Infinity,
+      averageDailySales: 0,
+      isActive: false
+    }
+  }
+
+  const totalSales = sales.reduce((sum, sale) => sum + sale.quantity, 0)
+  const sortedSales = [...sales].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  const lastSaleDate = sortedSales[0].date
   
-  // Mock validation
+  const daysSinceLastSale = Math.floor(
+    (new Date().getTime() - new Date(lastSaleDate).getTime()) / (1000 * 60 * 60 * 24)
+  )
+  
+  // Calculate average daily sales over the last 90 days
+  const ninetyDaysAgo = new Date()
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
+  
+  const recentSales = sales.filter(sale => new Date(sale.date) >= ninetyDaysAgo)
+  const averageDailySales = recentSales.length > 0 
+    ? recentSales.reduce((sum, sale) => sum + sale.quantity, 0) / 90
+    : 0
+    
+  // Consider active if has sales in last 30 days OR has decent average daily sales
+  const isActive = daysSinceLastSale <= 30 || averageDailySales > 0.1
+  
+  return {
+    totalSales,
+    lastSaleDate,
+    daysSinceLastSale,
+    averageDailySales,
+    isActive
+  }
+}
+
+// Mock sales data generators for non-pajara sources
+function generateMockSales(): Sale[] {
+  const mockSales: Sale[] = []
+  const channels = ['Shopee', 'Facebook', 'TikTok', 'Instagram', 'Lazada', 'LINE', 'Website', 'Store']
+  const skus = mockProducts.map(p => p.sku).slice(0, 50) // Only generate sales for first 50 products
+  
+  let saleId = 1
+  for (let i = 0; i < 200; i++) {
+    const sku = skus[Math.floor(Math.random() * skus.length)]
+    const channel = channels[Math.floor(Math.random() * channels.length)]
+    const daysAgo = Math.floor(Math.random() * 180) // Random date in last 180 days
+    const date = new Date()
+    date.setDate(date.getDate() - daysAgo)
+    
+    mockSales.push({
+      sale_id: saleId++,
+      channel,
+      date: date.toISOString().split('T')[0],
+      sku,
+      quantity: Math.floor(Math.random() * 5) + 1
+    })
+  }
+  
+  return mockSales
+}
+
+function generateMockSalesForSku(sku: string): Sale[] {
+  const mockSales: Sale[] = []
+  const channels = ['Shopee', 'Facebook', 'TikTok', 'Instagram', 'Lazada', 'LINE', 'Website', 'Store']
+  
+  // Generate 5-15 sales for this SKU
+  const salesCount = Math.floor(Math.random() * 10) + 5
+  let saleId = 1000 + Math.floor(Math.random() * 1000)
+  
+  for (let i = 0; i < salesCount; i++) {
+    const channel = channels[Math.floor(Math.random() * channels.length)]
+    const daysAgo = Math.floor(Math.random() * 90) // Random date in last 90 days
+    const date = new Date()
+    date.setDate(date.getDate() - daysAgo)
+    
+    mockSales.push({
+      sale_id: saleId++,
+      channel,
+      date: date.toISOString().split('T')[0],
+      sku,
+      quantity: Math.floor(Math.random() * 3) + 1
+    })
+  }
+  
+  return mockSales
+}
+
+// File upload functions with proper query parameters
+export async function uploadSalesData(
+  file: File, 
+  options: { dry_run?: boolean; create_missing?: boolean } = {}
+): Promise<{ success: boolean; message: string }> {
+  console.log('uploadSalesData called with:', { filename: file.name, options, currentDataSource })
+  
+  if (currentDataSource === 'pajara') {
+    console.log('Using pajara backend for sales upload')
+    const fd = new FormData()
+    fd.append('file', file)
+    
+    const params = new URLSearchParams()
+    if (options.dry_run) params.set('dry_run', 'true')
+    if (options.create_missing) params.set('create_missing', 'true')
+    
+    const url = params.toString() ? `/sales/upload?${params.toString()}` : '/sales/upload'
+    console.log('Sales upload URL:', url)
+    
+    const res = await apiFetch(url, { method: 'POST', body: fd })
+    
+    if (!res.ok) {
+      const errorText = await res.text()
+      console.error('Sales upload failed:', errorText)
+      throw new Error(errorText || 'Failed to upload sales file')
+    }
+    const result = await res.json()
+    console.log('Sales upload result:', result)
+    return result
+  }
+  console.log('Using mock data for sales upload')
+  await delay(2000)
   if (!file.name.endsWith('.csv') && !file.name.endsWith('.xlsx')) {
     throw new Error('Only CSV and Excel files are supported')
   }
-  
   return {
     success: true,
     message: `Sales data uploaded successfully. Processed ${Math.floor(Math.random() * 1000)} records.`
   }
 }
 
-export async function uploadStockData(file: File): Promise<{ success: boolean; message: string }> {
-  await delay(2000) // Simulate longer upload time
+export async function uploadStockData(
+  file: File, 
+  options: { dry_run?: boolean } = {}
+): Promise<{ success: boolean; message: string }> {
+  console.log('uploadStockData called with:', { filename: file.name, options, currentDataSource })
   
-  // Mock validation
+  if (currentDataSource === 'pajara') {
+    console.log('Using pajara backend for stock upload')
+    const fd = new FormData()
+    fd.append('file', file)
+    
+    const params = new URLSearchParams()
+    if (options.dry_run) params.set('dry_run', 'true')
+    
+    const url = params.toString() ? `/products/upload?${params.toString()}` : '/products/upload'
+    console.log('Stock upload URL:', url)
+    
+    const res = await apiFetch(url, { method: 'POST', body: fd })
+    
+    if (!res.ok) {
+      const errorText = await res.text()
+      console.error('Stock upload failed:', errorText)
+      throw new Error(errorText || 'Failed to upload stock file')
+    }
+    const result = await res.json()
+    console.log('Stock upload result:', result)
+    return result
+  }
+
+  console.log('Using mock data for stock upload')
+  await delay(2000)
   if (!file.name.endsWith('.csv') && !file.name.endsWith('.xlsx')) {
     throw new Error('Only CSV and Excel files are supported')
   }
-  
   return {
     success: true,
     message: `Stock data uploaded successfully. Updated ${Math.floor(Math.random() * 5000)} SKUs.`
   }
 }
 
-// ========================================
-// HOW TO SWITCH TO REAL BACKEND:
-// ========================================
-// 1. Comment out all the mock functions above
-// 2. Uncomment the original backend functions in the /* */ block at the top
-// 3. Uncomment the original useAuthenticatedApi hook if using authentication
-// 4. Update layout.tsx to include AuthProvider if using authentication
-// ========================================
+// End of file

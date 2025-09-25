@@ -1,29 +1,16 @@
 "use client"
 
-import React, { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { 
-  Package, 
-  AlertTriangle, 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Clock, 
-  ShoppingCart,
-  BarChart3,
-  PieChart,
-  Target,
-  Truck,
-  Calendar,
-  Filter
-} from "lucide-react"
-import { getProducts, getCategories } from '@/lib/api'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+
+import { AlertTriangle, Package, DollarSign, BarChart3, PieChart, Target, Truck, Clock, TrendingUp } from "lucide-react"
+import { getProducts, getCategories, setDataSource, getDataSource, getAllSales, analyzeSalesData } from '@/lib/api'
 import { Product } from '@/components/stock/stock-management'
 
 export function InventorySummary() {
@@ -33,41 +20,128 @@ export function InventorySummary() {
   const [loading, setLoading] = useState(true)
   const [timeRange, setTimeRange] = useState("30d")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
+  const [dataSource, setDataSourceState] = useState<'mock' | 'company1' | 'company2' | 'pajara'>(() => {
+    try {
+      const saved = localStorage.getItem('inventoryDataSource')
+      if (saved === 'company1' || saved === 'company2' || saved === 'mock' || saved === 'pajara') return saved as any
+    } catch (e) {}
+    return getDataSource() as any
+  })
+  const [salesData, setSalesData] = useState<Map<string, any>>(new Map())
+  const [loadingSales, setLoadingSales] = useState(false)
+
+  // Persist and apply data source when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('inventoryDataSource', dataSource)
+    } catch (e) {}
+    setDataSource(dataSource)
+    // The loadData effect will trigger automatically when dataSource changes
+  }, [dataSource])
 
   // Load data
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true)
+        
+        // Load sales data first if using pajara
+        let currentSalesData = new Map<string, any>()
+        if (dataSource === 'pajara') {
+          try {
+            setLoadingSales(true)
+            const sales = await getAllSales()
+            
+            // Group sales by SKU and analyze each
+            const salesGrouped: { [sku: string]: any[] } = {}
+            for (const sale of sales) {
+              if (!salesGrouped[sale.sku]) {
+                salesGrouped[sale.sku] = []
+              }
+              salesGrouped[sale.sku].push(sale)
+            }
+            
+            // Analyze each product's sales
+            for (const [sku, productSales] of Object.entries(salesGrouped)) {
+              const analysis = analyzeSalesData(productSales)
+              currentSalesData.set(sku, analysis)
+            }
+            
+            setSalesData(currentSalesData)
+          } catch (error) {
+            console.error('Failed to load sales data:', error)
+          } finally {
+            setLoadingSales(false)
+          }
+        }
+        
         const [productsData, categoriesData] = await Promise.all([
           getProducts(),
           getCategories()
         ])
         
+        // Filter and normalize categories to ensure they have valid IDs
+        const validCategories = (categoriesData || [])
+          .filter(cat => cat && cat.id !== undefined && cat.id !== null)
+          .map(cat => ({
+            id: Number(cat.id),
+            name: cat.name || 'Unknown Category'
+          }))
+        
         // Enhance products with calculated metrics
         const enhancedProducts = productsData.map(p => {
           const product = p as any // Type assertion to access optional properties
-          const dailySalesRate = product.daily_sales_rate || Math.random() * 5 + 0.5
-          const daysUntilStockout = dailySalesRate > 0 ? Math.floor(p.quantity / dailySalesRate) : 999
+          
+          // Get sales analysis if available
+          const sku = p.sku || String(p.id || '')
+          const salesAnalysis = currentSalesData.get(sku)
+          
+          // Use real sales data when available, otherwise generate mock data
+          let dailySalesRate = 0
+          let daysUntilStockout = 999
+          let salesTrend: 'increasing' | 'stable' | 'decreasing' = 'stable'
+          let daysSinceLastSale = 999
+          
+          if (salesAnalysis && dataSource === 'pajara') {
+            // Use real sales analysis for pajara
+            dailySalesRate = salesAnalysis.averageDailySales
+            const stockLevel = p.stock_level || p.quantity || 0
+            daysUntilStockout = dailySalesRate > 0 ? Math.floor(stockLevel / dailySalesRate) : 999
+            daysSinceLastSale = salesAnalysis.daysSinceLastSale
+            
+            if (daysSinceLastSale <= 7) {
+              salesTrend = 'increasing'
+            } else if (daysSinceLastSale <= 30) {
+              salesTrend = 'stable'
+            } else {
+              salesTrend = 'decreasing'
+            }
+          } else {
+            // Use mock data for other sources or when sales data is not available
+            dailySalesRate = product.daily_sales_rate || Math.random() * 5 + 0.5
+            const stockLevel = p.stock_level || p.quantity || 0
+            daysUntilStockout = dailySalesRate > 0 ? Math.floor(stockLevel / dailySalesRate) : 999
+            daysSinceLastSale = Math.floor(Math.random() * 120)
+            
+            salesTrend = daysSinceLastSale > 90 ? 'decreasing' :
+                        daysUntilStockout < 7 ? 'increasing' : 
+                        daysUntilStockout < 30 ? 'stable' : 'decreasing'
+          }
+          
           const leadTime = product.lead_time_days || 14
-          const reorderPoint = Math.max(p.low_stock_threshold, leadTime * dailySalesRate)
+          const stockLevel = p.stock_level || p.quantity || 0
+          const reorderPoint = Math.max(p.low_stock_threshold || 0, leadTime * dailySalesRate)
           
-          // Calculate days since last sale (mock data - in real app would come from sales data)
-          const daysSinceLastSale = Math.floor(Math.random() * 120) // 0-120 days
-          const isSlowMoving = daysSinceLastSale > 60 // 2+ months without sales
-          const isDeadStock = daysSinceLastSale > 90 // 3+ months without sales
+          const isSlowMoving = daysSinceLastSale > 60
+          const isDeadStock = daysSinceLastSale > 90
           
-          // Calculate total sales volume (mock data)
+          // Calculate total sales volume
           const monthlySales = product.monthly_sales || Math.floor(dailySalesRate * 30)
-          const totalSalesValue = monthlySales * (Math.random() * 100 + 20) // Mock sales value
-
-          const salesTrend: 'increasing' | 'stable' | 'decreasing' = 
-            daysSinceLastSale > 90 ? 'decreasing' :
-            daysUntilStockout < 7 ? 'increasing' : 
-            daysUntilStockout < 30 ? 'stable' : 'decreasing'
+          const totalSalesValue = monthlySales * (Math.random() * 100 + 20)
 
           return {
             ...p,
+            quantity: stockLevel, // Normalize quantity field
             daily_sales_rate: dailySalesRate,
             days_until_stockout: daysUntilStockout,
             reorder_point: reorderPoint,
@@ -87,7 +161,7 @@ export function InventorySummary() {
         })
         
         setProducts(enhancedProducts)
-        setCategories(categoriesData)
+        setCategories(validCategories)
       } catch (error) {
         console.error('Failed to load inventory data:', error)
       } finally {
@@ -96,7 +170,7 @@ export function InventorySummary() {
     }
 
     loadData()
-  }, [])
+  }, [dataSource]) // Remove salesData from dependencies to prevent infinite loop
 
   // Filter products by category
   const filteredProducts = useMemo(() => {
@@ -108,12 +182,12 @@ export function InventorySummary() {
   const metrics = useMemo(() => {
     const totalProducts = filteredProducts.length
     const totalSalesValue = filteredProducts.reduce((sum, p) => sum + ((p as any).total_sales_value || 0), 0)
-    const totalQuantity = filteredProducts.reduce((sum, p) => sum + p.quantity, 0)
+    const totalQuantity = filteredProducts.reduce((sum, p) => sum + (p.quantity || 0), 0)
     
-    const outOfStock = filteredProducts.filter(p => p.quantity === 0).length
-    const lowStock = filteredProducts.filter(p => p.quantity > 0 && p.quantity <= p.low_stock_threshold).length
-    const urgentReorders = filteredProducts.filter(p => p.days_until_stockout! < 7).length
-    const needReorder = filteredProducts.filter(p => p.quantity <= p.reorder_point!).length
+    const outOfStock = filteredProducts.filter(p => (p.quantity || 0) === 0).length
+    const lowStock = filteredProducts.filter(p => (p.quantity || 0) > 0 && (p.quantity || 0) <= (p.low_stock_threshold || 0)).length
+    const urgentReorders = filteredProducts.filter(p => (p.days_until_stockout || 999) < 7).length
+    const needReorder = filteredProducts.filter(p => (p.quantity || 0) <= (p.reorder_point || 0)).length
     
     // Inventory longevity breakdown
     const within14Days = filteredProducts.filter(p => p.days_until_stockout! <= 14 && p.days_until_stockout! > 0).length
@@ -127,33 +201,35 @@ export function InventorySummary() {
     const deadStock = filteredProducts.filter(p => (p as any).is_dead_stock).length
     
     const avgDaysUntilStockout = filteredProducts.length > 0 ? 
-      filteredProducts.reduce((sum, p) => sum + Math.min(p.days_until_stockout!, 365), 0) / filteredProducts.length : 0
+      filteredProducts.reduce((sum, p) => sum + Math.min(p.days_until_stockout || 365, 365), 0) / filteredProducts.length : 0
     
     const avgSalesVelocity = filteredProducts.length > 0 ?
       filteredProducts.reduce((sum, p) => sum + (p.daily_sales_rate || 0), 0) / filteredProducts.length : 0
     
     // Category breakdown
-    const categoryBreakdown = categories.map(cat => {
-      const catProducts = filteredProducts.filter(p => p.category_id === cat.id)
-      const catSalesValue = catProducts.reduce((sum, p) => sum + ((p as any).total_sales_value || 0), 0)
-      const catQuantity = catProducts.reduce((sum, p) => sum + p.quantity, 0)
-      return {
-        name: cat.name,
-        count: catProducts.length,
-        salesValue: catSalesValue,
-        quantity: catQuantity,
-        percentage: totalSalesValue > 0 ? (catSalesValue / totalSalesValue) * 100 : 0
-      }
-    }).filter(cat => cat.count > 0).sort((a, b) => b.salesValue - a.salesValue)
+    const categoryBreakdown = categories
+      .filter(cat => cat && cat.id !== undefined && cat.id !== null)
+      .map(cat => {
+        const catProducts = filteredProducts.filter(p => p.category_id === cat.id)
+        const catSalesValue = catProducts.reduce((sum, p) => sum + ((p as any).total_sales_value || 0), 0)
+        const catQuantity = catProducts.reduce((sum, p) => sum + (p.quantity || 0), 0)
+        return {
+          name: cat.name || 'Unknown Category',
+          count: catProducts.length,
+          salesValue: catSalesValue,
+          quantity: catQuantity,
+          percentage: totalSalesValue > 0 ? (catSalesValue / totalSalesValue) * 100 : 0
+        }
+      }).filter(cat => cat.count > 0).sort((a, b) => b.salesValue - a.salesValue)
 
     // Stock health
     const healthyStock = filteredProducts.filter(p => 
-      p.quantity > p.reorder_point! && p.days_until_stockout! > 30 && !(p as any).is_slow_moving
+      (p.quantity || 0) > (p.reorder_point || 0) && (p.days_until_stockout || 0) > 30 && !(p as any).is_slow_moving
     ).length
     
     // Top performing products by sales velocity
     const topPerformers = [...filteredProducts]
-      .filter(p => (p as any).days_since_last_sale < 30) // Only include recently selling items
+      .filter(p => ((p as any).days_since_last_sale || 999) < 30) // Only include recently selling items
       .sort((a, b) => (b.daily_sales_rate || 0) - (a.daily_sales_rate || 0))
       .slice(0, 5)
 
@@ -206,6 +282,22 @@ export function InventorySummary() {
           <h1 className="text-3xl font-extrabold">Inventory Summary</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             High-level overview of your clothing inventory performance and health
+            <span className="ml-2 text-blue-600 font-medium">
+              • Data source: {dataSource === 'pajara' ? 'Pajara (Live)' : 
+                              dataSource === 'company1' ? 'Company 1' : 
+                              dataSource === 'company2' ? 'Company 2' : 'Demo Data'}
+            </span>
+            {dataSource === 'pajara' && (
+              <span className="ml-2">
+                {loadingSales ? (
+                  <span className="text-orange-600">• Loading sales data...</span>
+                ) : salesData.size > 0 ? (
+                  <span className="text-green-600">• {salesData.size} products with real sales data</span>
+                ) : (
+                  <span className="text-gray-600">• Using calculated metrics</span>
+                )}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -215,11 +307,13 @@ export function InventorySummary() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              {categories.map(category => (
-                <SelectItem key={category.id} value={category.id.toString()}>
-                  {category.name}
-                </SelectItem>
-              ))}
+              {categories
+                .filter(category => category && category.id !== undefined && category.id !== null)
+                .map(category => (
+                  <SelectItem key={category.id} value={category.id.toString()}>
+                    {category.name || 'Unknown Category'}
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
           <Select value={timeRange} onValueChange={setTimeRange}>
@@ -231,6 +325,17 @@ export function InventorySummary() {
               <SelectItem value="30d">Last 30 days</SelectItem>
               <SelectItem value="90d">Last 90 days</SelectItem>
               <SelectItem value="1y">Last year</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={dataSource} onValueChange={(v) => setDataSourceState(v as any)}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mock">Demo Data</SelectItem>
+              <SelectItem value="company1">Company 1</SelectItem>
+              <SelectItem value="company2">Company 2</SelectItem>
+              <SelectItem value="pajara">Pajara (Live)</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -304,7 +409,7 @@ export function InventorySummary() {
       </div>
 
       {/* Alert Summary */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-7">
         <Card 
           className="border-l-4 border-l-red-500 cursor-pointer hover:shadow-md transition-shadow"
           onClick={() => router.push('/dashboard/stock?filter=urgent')}
@@ -312,13 +417,13 @@ export function InventorySummary() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-red-500" />
-              Urgent Action Required
+              Urgent Action
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{metrics.urgentReorders}</div>
-            <p className="text-xs text-muted-foreground">Items need reorder within 7 days</p>
-            <p className="text-xs text-blue-600 mt-1 font-medium">Click to view items →</p>
+            <p className="text-xs text-muted-foreground">Need reorder ≤7 days</p>
+            <p className="text-xs text-blue-600 mt-1 font-medium">Click to view →</p>
           </CardContent>
         </Card>
 
@@ -335,7 +440,7 @@ export function InventorySummary() {
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">{metrics.needReorder}</div>
             <p className="text-xs text-muted-foreground">Below reorder point</p>
-            <p className="text-xs text-blue-600 mt-1 font-medium">Click to view items →</p>
+            <p className="text-xs text-blue-600 mt-1 font-medium">Click to view →</p>
           </CardContent>
         </Card>
 
@@ -351,8 +456,8 @@ export function InventorySummary() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">{metrics.slowMovingStock}</div>
-            <p className="text-xs text-muted-foreground">No sales in 60+ days</p>
-            <p className="text-xs text-blue-600 mt-1 font-medium">Click to view items →</p>
+            <p className="text-xs text-muted-foreground">No sales 60+ days</p>
+            <p className="text-xs text-blue-600 mt-1 font-medium">Click to view →</p>
           </CardContent>
         </Card>
 
@@ -363,13 +468,13 @@ export function InventorySummary() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <Package className="h-4 w-4 text-gray-500" />
-              Dead Stock
+              Inactive Stock
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-gray-600">{metrics.deadStock}</div>
-            <p className="text-xs text-muted-foreground">No sales in 90+ days</p>
-            <p className="text-xs text-blue-600 mt-1 font-medium">Click to view items →</p>
+            <p className="text-xs text-muted-foreground">No sales 90+ days</p>
+            <p className="text-xs text-blue-600 mt-1 font-medium">Click to view →</p>
           </CardContent>
         </Card>
 
@@ -386,9 +491,44 @@ export function InventorySummary() {
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{metrics.outOfStock}</div>
             <p className="text-xs text-muted-foreground">Zero inventory</p>
-            <p className="text-xs text-blue-600 mt-1 font-medium">Click to view items →</p>
+            <p className="text-xs text-blue-600 mt-1 font-medium">Click to view →</p>
           </CardContent>
         </Card>
+
+        <Card 
+          className="border-l-4 border-l-green-500 cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => router.push('/dashboard/stock?filter=active')}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Package className="h-4 w-4 text-green-500" />
+              Active Stock
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{filteredProducts.filter(p => ((p as any).days_since_last_sale || 999) <= 30).length}</div>
+            <p className="text-xs text-muted-foreground">With recent sales</p>
+            <p className="text-xs text-blue-600 mt-1 font-medium">Click to view →</p>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="border-l-4 border-l-slate-500 cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => router.push('/dashboard/stock?filter=inactive')}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Package className="h-4 w-4 text-slate-500" />
+              Inactive Stock
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-slate-600">{filteredProducts.filter(p => ((p as any).days_since_last_sale || 999) > 30).length}</div>
+            <p className="text-xs text-muted-foreground">No recent sales</p>
+            <p className="text-xs text-blue-600 mt-1 font-medium">Click to view →</p>
+          </CardContent>
+        </Card>
+
       </div>
 
       {/* Detailed Analysis Tabs */}
@@ -520,7 +660,7 @@ export function InventorySummary() {
             <CardContent>
               <div className="space-y-3">
                 {metrics.topPerformers.map((product, index) => (
-                  <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div key={product.id || product.sku || index} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
                       <Badge variant="outline" className="w-8 h-8 flex items-center justify-center">
                         {index + 1}
@@ -528,14 +668,14 @@ export function InventorySummary() {
                       <div>
                         <p className="font-medium">{product.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          SKU: {product.sku} • {product.category?.name} • Size: {product.size}
+                          SKU: {product.sku} • {product.category?.name || 'Unknown'} • Size: {product.size || 'N/A'}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="font-medium">{(product.daily_sales_rate || 0).toFixed(1)} units/day</p>
                       <p className="text-sm text-muted-foreground">
-                        {product.quantity} in stock • {product.days_until_stockout}d left
+                        {product.quantity || 0} in stock • {product.days_until_stockout || 999}d left
                       </p>
                     </div>
                   </div>
@@ -598,7 +738,7 @@ export function InventorySummary() {
                   
                   <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
                     <div>
-                      <p className="font-medium text-red-800">Slow/Dead Stock</p>
+                      <p className="font-medium text-red-800">Slow/Inactive Stock</p>
                       <p className="text-sm text-red-600">Needs attention</p>
                     </div>
                     <div className="text-right">

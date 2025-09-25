@@ -8,18 +8,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { SimpleUploadButton } from "./simple-upload-button"
 import { Search, Package, AlertTriangle, Settings } from "lucide-react"
-import { getProducts, getCategories } from '@/lib/api'
+import { getProducts, getCategories, setDataSource, getDataSource, getAvailableSizesAndColors, getAllSales, analyzeSalesData } from '@/lib/api'
 import { FixedSizeList as List } from 'react-window'
 import { notificationManager } from '@/lib/notifications'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export interface Product {
-  id: number
+  id?: number
   name: string
   sku: string
   category_id: number | null
   description: string | null
-  quantity: number
+  // backend uses `stock_level` as the authoritative field; keep `quantity` for older mocks
+  quantity?: number
+  stock_level?: number
   low_stock_threshold: number
   size: string
   material?: string
@@ -52,7 +54,10 @@ export function StockManagement() {
   const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<{ id: number; name: string }[]>([])
+  const [salesData, setSalesData] = useState<Map<string, any>>(new Map())
+  const [loadingSales, setLoadingSales] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [baselineThreshold, setBaselineThreshold] = useState<number | ''>('')
   const [searchTerm, setSearchTerm] = useState("")
   const [typeahead, setTypeahead] = useState<string>("")
@@ -60,6 +65,9 @@ export function StockManagement() {
   const typeaheadTimer = useRef<number | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [selectedSize, setSelectedSize] = useState<string>("all")
+  const [selectedColor, setSelectedColor] = useState<string>("all")
+  const [serverSizes, setServerSizes] = useState<string[] | null>(null)
+  const [serverColors, setServerColors] = useState<string[] | null>(null)
   const [stockFilter, setStockFilter] = useState<string>(() => {
     const filter = searchParams.get("filter")
     // Map inventory summary filters to appropriate stock/reorder filters
@@ -71,15 +79,24 @@ export function StockManagement() {
   const [reorderFilter, setReorderFilter] = useState<string>(() => {
     const filter = searchParams.get("filter")
     // Handle reorder-specific filters from URL
-    if (filter === "urgent" || filter === "needed" || filter === "slow" || filter === "dead") {
+    if (filter === "urgent" || filter === "needed" || filter === "slow" || filter === "dead" || filter === "active" || filter === "inactive") {
       return filter
     }
     return "all"
   })
   const [page, setPage] = useState(1)
   const [pageSize] = useState(50) // Fixed page size for better performance
+  // Virtualized row height (px) — increase to make rows taller
+  const rowHeight = 80
   const [defaultLeadTime, setDefaultLeadTime] = useState<number>(14) // Default 14 days lead time
   const [showSettings, setShowSettings] = useState(false) // Toggle for settings panel
+  const [dataSource, setDataSourceState] = useState<'mock' | 'company1' | 'company2' | 'pajara'>(() => {
+    try {
+      const saved = localStorage.getItem('inventoryDataSource')
+      if (saved === 'company1' || saved === 'company2' || saved === 'mock' || saved === 'pajara') return saved as any
+    } catch (e) {}
+    return getDataSource() as any
+  })
 
   // Initialize settings from localStorage
   useEffect(() => {
@@ -104,9 +121,69 @@ export function StockManagement() {
     }
   }, [])
 
+  // Persist and apply data source when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('inventoryDataSource', dataSource)
+    } catch (e) {}
+    // Inform api layer and reload data
+    try {
+      setDataSource(dataSource)
+      loadData()
+    } catch (e) {}
+  }, [dataSource])
+  
+  // Load sales data when products change or data source changes
+  useEffect(() => {
+    if (products.length > 0) {
+      loadSalesData()
+    }
+  }, [products.length, dataSource])
+
   // Helper function to calculate consistent days since last sale
-  const getDaysSinceLastSale = (productId: number) => {
-    return (productId * 7) % 120 // Deterministic value between 0-119
+  // Deterministic seed from SKU (string) to emulate days since last sale when numeric id is not available
+  const skuToSeed = (sku: string) => {
+    let sum = 0
+    for (let i = 0; i < sku.length; i++) sum += sku.charCodeAt(i)
+    return sum
+  }
+
+  const getDaysSinceLastSale = (skuOrId: string | number) => {
+    if (typeof skuOrId === 'number') return (skuOrId * 7) % 120
+    return (skuToSeed(String(skuOrId)) * 7) % 120
+  }
+
+  // Helper to get a product's stock level (supports old `quantity` mocks and new `stock_level`)
+  const getStockLevel = (p: Product) => {
+    // When using the pajara backend, stock_level is authoritative. Fall back to quantity for mocks.
+    return (dataSource === 'pajara' ? (p.stock_level ?? p.quantity ?? 0) : (p.stock_level ?? p.quantity ?? 0))
+  }
+
+  const getSku = (p: Product) => {
+    return p.sku ?? String(p.id ?? '')
+  }
+
+  // Helper to check if a product has sales activity (based on real sales data)
+  const hasRecentSalesActivity = (p: Product) => {
+    const sku = getSku(p)
+    const salesAnalysis = salesData.get(sku)
+    
+    if (salesAnalysis) {
+      // Use real sales analysis data
+      return salesAnalysis.isActive
+    }
+    
+    // Fallback for products without sales data
+    if (dataSource === 'pajara') {
+      // For pajara backend without sales data, consider products as potentially inactive
+      // until we have actual sales data
+      return false
+    }
+    
+    // For mock data, use the old logic as fallback
+    const salesRate = p.daily_sales_rate || 0
+    const daysSinceLastSale = getDaysSinceLastSale(p.sku ?? (p.id ?? 0))
+    return salesRate > 0 && daysSinceLastSale <= 30
   }
 
   // Helper function to get baseline threshold value
@@ -116,8 +193,47 @@ export function StockManagement() {
 
   // Get unique values for filter dropdowns
   const uniqueSizes = React.useMemo(() => {
-    const sizes = Array.from(new Set(products.map(p => p.size).filter(Boolean)))
-    return sizes.sort()
+    // If the pajara backend provided an explicit list of sizes, prefer it
+    if (serverSizes && serverSizes.length) return serverSizes
+    const defaultSizes = ['XS','S','M','L','XL','XXL']
+    const sizesSet = new Set<string>()
+    for (const p of products) {
+      if (!p) continue
+      if (p.size && String(p.size).trim()) {
+        const raw = String(p.size)
+        // Support comma-separated sizes in a single field
+        if (raw.includes(',')) {
+          raw.split(',').map(s => s.trim()).filter(Boolean).forEach(s => sizesSet.add(s))
+        } else {
+          sizesSet.add(raw.trim())
+        }
+      }
+    }
+    const arr = Array.from(sizesSet).sort()
+    return arr.length ? arr : defaultSizes
+  }, [products])
+
+  const uniqueColors = React.useMemo(() => {
+    // Prefer server-provided palette when available
+    if (serverColors && serverColors.length) return serverColors
+    const defaultColors = ['Black','White','Gray','Red','Blue','Green','Beige']
+    const colorsSet = new Set<string>()
+    for (const p of products) {
+      if (!p) continue
+      // Prefer backend `color` field; also check legacy fields like `colour` if present
+      const colorField = (p as any).color ?? (p as any).colour
+      if (colorField && String(colorField).trim()) {
+        const raw = String(colorField)
+        // Support comma-separated color lists
+        if (raw.includes(',')) {
+          raw.split(',').map(s => s.trim()).filter(Boolean).forEach(s => colorsSet.add(s))
+        } else {
+          colorsSet.add(raw.trim())
+        }
+      }
+    }
+    const arr = Array.from(colorsSet).sort()
+    return arr.length ? arr : defaultColors
   }, [products])
 
 
@@ -125,13 +241,42 @@ export function StockManagement() {
   // Calculate inventory forecasting metrics
   const enhancedProducts = React.useMemo(() => {
     return products.map(p => {
-      // Mock sales data - in real app, this would come from sales CSV uploads
-      const dailySalesRate = p.daily_sales_rate || Math.random() * 5 + 0.5
-      const daysUntilStockout = dailySalesRate > 0 ? Math.floor(p.quantity / dailySalesRate) : 999
+      const sku = getSku(p)
+      const salesAnalysis = salesData.get(sku)
+      
+      // Use real sales data when available, otherwise fall back to mock calculations
+      let dailySalesRate = p.daily_sales_rate || 0
+      let daysUntilStockout = 999
+      let salesTrend: 'increasing' | 'stable' | 'decreasing' = 'stable'
+      
+      if (salesAnalysis) {
+        // Use real sales analysis
+        dailySalesRate = salesAnalysis.averageDailySales
+        const stockLevel = getStockLevel(p)
+        daysUntilStockout = dailySalesRate > 0 ? Math.floor(stockLevel / dailySalesRate) : 999
+        
+        // Determine trend based on recent sales activity
+        if (salesAnalysis.daysSinceLastSale <= 7) {
+          salesTrend = 'increasing'
+        } else if (salesAnalysis.daysSinceLastSale <= 30) {
+          salesTrend = 'stable' 
+        } else {
+          salesTrend = 'decreasing'
+        }
+      } else if (dataSource !== 'pajara') {
+        // Fall back to mock calculation for non-pajara sources without real sales data
+        dailySalesRate = Math.random() * 5 + 0.5
+        const stockLevel = getStockLevel(p)
+        daysUntilStockout = dailySalesRate > 0 ? Math.floor(stockLevel / dailySalesRate) : 999
+        salesTrend = (daysUntilStockout < 7 ? 'increasing' : 
+                     daysUntilStockout < 30 ? 'stable' : 'decreasing') as 'increasing' | 'stable' | 'decreasing'
+      }
+      
+      const stockLevel = getStockLevel(p)
       const leadTime = p.lead_time_days || defaultLeadTime
       const reorderPoint = Math.max(p.low_stock_threshold, leadTime * dailySalesRate)
       const recommendedReorderQty = Math.ceil(dailySalesRate * 30) // 30 days supply
-      const inventoryValue = (p.cost_price || 0) * p.quantity
+      const inventoryValue = (p.cost_price || 0) * stockLevel
       const profitMargin = p.selling_price && p.cost_price ? 
         ((p.selling_price - p.cost_price) / p.selling_price) * 100 : 0
 
@@ -143,11 +288,11 @@ export function StockManagement() {
         recommended_reorder_qty: recommendedReorderQty,
         inventory_value: inventoryValue,
         profit_margin: profitMargin,
-        sales_trend: (daysUntilStockout < 7 ? 'increasing' : 
-                     daysUntilStockout < 30 ? 'stable' : 'decreasing') as 'increasing' | 'stable' | 'decreasing'
+        sales_trend: salesTrend,
+        sales_analysis: salesAnalysis // Include the full sales analysis
       }
     })
-  }, [products, defaultLeadTime])
+  }, [products, defaultLeadTime, salesData])
 
   // Apply all filters to products
   const filteredProducts = React.useMemo(() => {
@@ -158,22 +303,31 @@ export function StockManagement() {
       const query = searchTerm.toLowerCase()
       filtered = filtered.filter(p =>
         p.name.toLowerCase().includes(query) ||
-        p.sku.toLowerCase().includes(query) ||
-        p.brand?.toLowerCase().includes(query) ||
-        p.category?.name.toLowerCase().includes(query) ||
-        p.color?.toLowerCase().includes(query) ||
-        p.supplier?.toLowerCase().includes(query)
+          p.sku.toLowerCase().includes(query) ||
+          p.brand?.toLowerCase().includes(query) ||
+          p.category?.name.toLowerCase().includes(query) ||
+          p.supplier?.toLowerCase().includes(query)
       )
     }
 
     // Category filter
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter(p => p.category_id?.toString() === selectedCategory)
+    // Category filter (skip client-side when using server-side pajara filtering)
+    if (dataSource !== 'pajara' && selectedCategory !== "all") {
+      filtered = filtered.filter(p => String(p.category_id) === selectedCategory)
     }
 
     // Size filter
-    if (selectedSize !== "all") {
-      filtered = filtered.filter(p => p.size === selectedSize)
+    if (dataSource !== 'pajara' && selectedSize !== "all") {
+      // Compare to backend size when using pajara; otherwise mock `size` field still applies
+      filtered = filtered.filter(p => String((p as any).size ?? '').toLowerCase() === String(selectedSize).toLowerCase())
+    }
+
+    // Color filter
+    if (dataSource !== 'pajara' && selectedColor !== "all") {
+      filtered = filtered.filter(p => {
+        const colorField = (p as any).color ?? (p as any).colour ?? ''
+        return String(colorField).toLowerCase() === String(selectedColor).toLowerCase()
+      })
     }
 
 
@@ -182,14 +336,15 @@ export function StockManagement() {
     if (stockFilter !== "all") {
       const baselineVal = getBaselineThreshold()
       filtered = filtered.filter(p => {
+        const stock = getStockLevel(p)
         const threshold = p.low_stock_threshold ?? baselineVal
         switch (stockFilter) {
           case "out":
-            return p.quantity === 0
+            return stock === 0
           case "low":
-            return p.quantity > 0 && p.quantity <= threshold
+            return stock > 0 && stock <= threshold
           case "normal":
-            return p.quantity > threshold
+            return stock > threshold
           default:
             return true
         }
@@ -199,20 +354,26 @@ export function StockManagement() {
     // Reorder filter
     if (reorderFilter !== "all") {
       filtered = filtered.filter(p => {
-        // Generate consistent days since last sale based on product ID (same as status display)
-        const daysSinceLastSale = (p.id * 7) % 120
-        
+        // Generate consistent days since last sale based on product SKU or legacy ID
+        const daysSinceLastSale = getDaysSinceLastSale(p.sku ?? (p.id ?? 0))
+        const stock = getStockLevel(p)
+        const hasActivity = hasRecentSalesActivity(p)
+
         switch (reorderFilter) {
           case "urgent":
             return p.days_until_stockout! < 7
           case "needed":
-            return p.quantity <= (p.low_stock_threshold ?? getBaselineThreshold())
+            return stock <= (p.low_stock_threshold ?? getBaselineThreshold())
           case "recommended":
             return p.days_until_stockout! < 30
           case "slow":
             return daysSinceLastSale > 60 && daysSinceLastSale <= 90 // 60-90 days without sales
           case "dead":
-            return daysSinceLastSale > 90 // 90+ days without sales
+            return daysSinceLastSale > 90 // 90+ days without sales (legacy logic)
+          case "active":
+            return hasActivity // Products with recent sales activity
+          case "inactive":
+            return !hasActivity // Products with no recent sales activity (dead stock)
           default:
             return true
         }
@@ -225,7 +386,7 @@ export function StockManagement() {
   // Reset page when filters change
   useEffect(() => {
     setPage(1)
-  }, [searchTerm, selectedCategory, selectedSize, stockFilter, reorderFilter])
+  }, [searchTerm, selectedCategory, selectedSize, selectedColor, stockFilter, reorderFilter, baselineThreshold, dataSource])
 
   // Pagination calculations
   const pageCount = Math.ceil(filteredProducts.length / pageSize)
@@ -235,24 +396,91 @@ export function StockManagement() {
     return filteredProducts.slice(startIndex, endIndex)
   }, [filteredProducts, page, pageSize])
 
-  const loadData = async () => {
+  // Load sales data from API
+  const loadSalesData = async () => {
     try {
-      setLoading(true)
+      setLoadingSales(true)
+      const sales = await getAllSales()
+      
+      // Group sales by SKU and analyze each
+      const salesByProduct = new Map<string, any>()
+      
+      // Group sales by SKU
+      const salesGrouped: { [sku: string]: any[] } = {}
+      for (const sale of sales) {
+        if (!salesGrouped[sale.sku]) {
+          salesGrouped[sale.sku] = []
+        }
+        salesGrouped[sale.sku].push(sale)
+      }
+      
+      // Analyze each product's sales
+      for (const [sku, productSales] of Object.entries(salesGrouped)) {
+        const analysis = analyzeSalesData(productSales)
+        salesByProduct.set(sku, analysis)
+      }
+      
+      setSalesData(salesByProduct)
+      console.log('Sales data loaded:', salesByProduct.size, 'products with sales')
+    } catch (error) {
+      console.error('Failed to load sales data:', error)
+      // Don't throw - allow the component to work without sales data
+    } finally {
+      setLoadingSales(false)
+    }
+  }
+
+  const loadData = async (suppressLoading: boolean = false) => {
+    try {
+      // When suppressLoading is true (e.g. applying filters), don't flip the
+      // global loading state so the current table stays visible while new
+      // results load in the background.
+      if (!suppressLoading) {
+        setLoading(true)
+      }
+      setLoadError(null)
+      // When using server (pajara), send filters to the API
+      const filters: any = {}
+      if (dataSource === 'pajara') {
+        if (selectedCategory !== 'all') filters.category_id = Number(selectedCategory)
+        if (selectedSize !== 'all') filters.size = selectedSize
+        if (selectedColor !== 'all') filters.color = selectedColor
+      }
       const [productsData, categoriesData] = await Promise.all([
-        getProducts(),
+        getProducts(dataSource === 'pajara' ? filters : undefined),
         getCategories()
       ])
-      setProducts(productsData)
-      setCategories(categoriesData)
-      
+      // Normalize categories: backend may return { category_id, name } or { id, name }
+      const normalizedCats = (categoriesData || [])
+        .map((c: any) => {
+          if (c == null) return null
+          const id = (c.id ?? c.category_id ?? c.categoryId ?? null)
+          if (id === null || id === undefined) return null
+          return { id: Number(id), name: c.name ?? c.category_name ?? 'Unknown' }
+        })
+        .filter((x): x is { id: number; name: string } => x != null && !isNaN(x.id))
+      setCategories(normalizedCats)
+      // Map products to include `category` object from the categories list when available
+      const catById = new Map<number, { id: number; name: string }>()
+      for (const c of normalizedCats) catById.set(c.id, c)
+
+      const productsWithCategory = (productsData || []).map((p: any) => {
+        const cat = p?.category?.name ? p.category : (p?.category_id ? catById.get(Number(p.category_id)) ?? null : null)
+        return { ...p, category: cat }
+      })
+
+      setProducts(productsWithCategory)
+
       // Check stock levels and trigger notifications
-      const stockItems = productsData.map(p => ({
-        id: p.id.toString(),
-        name: p.name,
-        currentStock: p.quantity,
-        threshold: p.low_stock_threshold,
-        category: p.category?.name || 'Unknown'
-      }))
+      const stockItems = (productsWithCategory || [])
+        .filter(p => p != null && (((p as any).sku && String((p as any).sku).length > 0) || (p as any).id !== undefined))
+        .map(p => ({
+          id: String((p as any).sku ?? (p as any).id ?? ''),
+          name: p?.name ?? 'Unknown',
+          currentStock: getStockLevel(p as Product),
+          threshold: p?.low_stock_threshold ?? getBaselineThreshold(),
+          category: p?.category?.name || 'Unknown'
+        }))
       
       // Only check notifications on initial load to avoid spam
       if (productsData.length > 0) {
@@ -260,11 +488,19 @@ export function StockManagement() {
           notificationManager.checkStockLevels(stockItems)
         }, 2000) // Delay to allow page to load
       }
+      
+      // Load sales data for active/dead stock analysis
+      if (!suppressLoading) {
+        await loadSalesData()
+      }
     } catch (error) {
       console.error('Failed to load inventory data:', error)
+      setLoadError((error as any)?.message || String(error))
       // You could add a toast notification here
     } finally {
-      setLoading(false)
+      if (!suppressLoading) {
+        setLoading(false)
+      }
     }
   }
 
@@ -272,6 +508,41 @@ export function StockManagement() {
   useEffect(() => {
     loadData()
   }, [])
+
+  // When using server-side filtering, reload data when filter selections change.
+  // Use a background fetch (suppressLoading=true) so we don't hide the current
+  // table and show the global loading indicator while filters are applied.
+  useEffect(() => {
+    if (dataSource === 'pajara') {
+      loadData(true)
+    }
+  }, [selectedCategory, selectedSize, selectedColor, dataSource])
+
+  // Fetch server-provided facets (sizes/colors) when using pajara so dropdowns
+  // show the same palette as the backend.
+  useEffect(() => {
+    let cancelled = false
+    async function fetchFacets() {
+      try {
+        if (dataSource !== 'pajara') {
+          setServerSizes(null)
+          setServerColors(null)
+          return
+        }
+        const { sizes, colors } = await getAvailableSizesAndColors()
+        if (cancelled) return
+        setServerSizes(sizes)
+        setServerColors(colors)
+      } catch (err) {
+        // If facet fetch fails, keep local extraction logic — do not block UI
+        console.warn('Failed to fetch sizes/colors from server:', err)
+        setServerSizes(null)
+        setServerColors(null)
+      }
+    }
+    fetchFacets()
+    return () => { cancelled = true }
+  }, [dataSource])
 
   // Typeahead debounce and suggestions (client-side)
   useEffect(() => {
@@ -292,16 +563,29 @@ export function StockManagement() {
 
   // Calculate business-critical summary stats
   const totalProducts = products.length
-  const outOfStockCount = enhancedProducts.filter(p => p.quantity === 0).length
+  const outOfStockCount = enhancedProducts.filter(p => getStockLevel(p) === 0).length
   const urgentReorderCount = enhancedProducts.filter(p => p.days_until_stockout! < 7).length
   const needsReorderCount = enhancedProducts.filter(p => 
-    p.quantity <= (p.low_stock_threshold ?? getBaselineThreshold())
+    getStockLevel(p) <= (p.low_stock_threshold ?? getBaselineThreshold())
   ).length
-
   const stockoutRisk = enhancedProducts.filter(p => p.days_until_stockout! < 14).length
+  const activeStockCount = enhancedProducts.filter(p => hasRecentSalesActivity(p)).length
+  const deadStockCount = enhancedProducts.filter(p => !hasRecentSalesActivity(p)).length
 
   if (loading) {
     return <div className="flex items-center justify-center h-64">Loading inventory...</div>
+  }
+
+  if (loadError) {
+    return (
+      <div className="p-6">
+        <div className="text-red-600 font-medium mb-2">Failed to load inventory</div>
+        <div className="text-sm text-muted-foreground">{loadError}</div>
+        <div className="mt-4">
+          <Button onClick={() => loadData()}>Retry</Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -434,9 +718,9 @@ export function StockManagement() {
                     setProducts(updated)
                     notificationManager.resetFirstRunFlag()
                     notificationManager.checkStockLevels(updated.map(p => ({
-                      id: p.id.toString(),
+                      id: getSku(p),
                       name: p.name,
-                      currentStock: p.quantity,
+                      currentStock: getStockLevel(p),
                       threshold: p.low_stock_threshold ?? applyVal,
                       category: p.category?.name || 'Unknown'
                     })))
@@ -447,6 +731,26 @@ export function StockManagement() {
                   Apply to all SKUs
                 </Button>
                 <p className="text-xs text-muted-foreground">Used when a product's low-stock threshold is not set.</p>
+              </div>
+
+              {/* Data Source Selector */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium">Data Source</label>
+                <p className="text-xs text-muted-foreground">Switch between mock and company datasets for testing.</p>
+                <div className="flex items-center gap-2">
+                  <Select value={dataSource} onValueChange={(v) => setDataSourceState(v as any)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mock">Demo (Mock) Data</SelectItem>
+                      <SelectItem value="company1">Company 1</SelectItem>
+                      <SelectItem value="company2">Company 2</SelectItem>
+                      <SelectItem value="pajara">Pajara (Live)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="outline" onClick={() => loadData()}>Reload</Button>
+                </div>
               </div>
 
               {/* Default Lead Time */}
@@ -526,7 +830,7 @@ export function StockManagement() {
       )}
 
       {/* Business Intelligence Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-5">
         <Card className="cursor-pointer hover:shadow-md transition-shadow border-l-4 border-l-red-500" onClick={() => setReorderFilter("urgent")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div className="flex items-center space-x-2">
@@ -572,6 +876,35 @@ export function StockManagement() {
           </CardContent>
         </Card>
         
+        <Card className="cursor-pointer hover:shadow-md transition-shadow border-l-4 border-l-green-500" onClick={() => setReorderFilter("active")}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div className="flex items-center space-x-2">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Package className="h-4 w-4 text-green-600" />
+              </div>
+              <CardTitle className="text-sm font-medium">Active Stock</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{activeStockCount}</div>
+            <p className="text-xs text-muted-foreground">With recent sales</p>
+          </CardContent>
+        </Card>
+        
+        <Card className="cursor-pointer hover:shadow-md transition-shadow border-l-4 border-l-gray-500" onClick={() => setReorderFilter("inactive")}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div className="flex items-center space-x-2">
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <Package className="h-4 w-4 text-gray-600" />
+              </div>
+              <CardTitle className="text-sm font-medium">Dead Stock</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-600">{deadStockCount}</div>
+            <p className="text-xs text-muted-foreground">No recent sales</p>
+          </CardContent>
+        </Card>
 
       </div>
 
@@ -611,7 +944,7 @@ export function StockManagement() {
                     ) : (
                       suggestions.slice(0, 10).map(s => (
                         <div
-                          key={s.id}
+                          key={getSku(s)}
                           className="p-2 hover:bg-muted/50 cursor-pointer"
                           onClick={() => {
                             setSearchTerm(s.name)
@@ -655,6 +988,26 @@ export function StockManagement() {
                       {size}
                     </SelectItem>
                   ))}
+                  {/* If the currently selected size isn't in the list (possible when switching sources), show it so user can clear it */}
+                  {selectedSize !== 'all' && !uniqueSizes.includes(selectedSize) && (
+                    <SelectItem key={`selected-${selectedSize}`} value={selectedSize}>{selectedSize}</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+
+              {/* Color Filter */}
+              <Select value={selectedColor} onValueChange={setSelectedColor}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Color" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Colors</SelectItem>
+                  {uniqueColors.map(color => (
+                    <SelectItem key={color} value={color}>{color}</SelectItem>
+                  ))}
+                  {selectedColor !== 'all' && !uniqueColors.includes(selectedColor) && (
+                    <SelectItem key={`selected-color-${selectedColor}`} value={selectedColor}>{selectedColor}</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
 
@@ -683,6 +1036,8 @@ export function StockManagement() {
                   <SelectItem value="recommended">🟠 Recommended (&lt;30 days)</SelectItem>
                   <SelectItem value="slow">🟣 Slow Moving (60+ days)</SelectItem>
                   <SelectItem value="dead">⚫ Dead Stock (90+ days)</SelectItem>
+                  <SelectItem value="active">🟢 Active Stock</SelectItem>
+                  <SelectItem value="inactive">⚪ Dead Stock (No Sales)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -696,6 +1051,7 @@ export function StockManagement() {
                   setSearchTerm("")
                   setSelectedCategory("all")
                   setSelectedSize("all")
+                  setSelectedColor("all")
                   setStockFilter("all")
                   setReorderFilter("all")
                 }}
@@ -712,7 +1068,7 @@ export function StockManagement() {
               </p>
               
               {/* Contextual Filter Info */}
-              {(reorderFilter !== "all" || stockFilter !== "all" || selectedCategory !== "all" || selectedSize !== "all" || searchTerm) && (
+              {(reorderFilter !== "all" || stockFilter !== "all" || selectedCategory !== "all" || selectedSize !== "all" || selectedColor !== "all" || searchTerm) && (
                 <div className="flex items-center gap-2 text-xs">
                   <span className="text-muted-foreground">Active filters:</span>
                   {reorderFilter !== "all" && (
@@ -721,7 +1077,9 @@ export function StockManagement() {
                        reorderFilter === "needed" ? "🟡 Reorder Needed" :
                        reorderFilter === "slow" ? "🟣 Slow Moving" :
                        reorderFilter === "dead" ? "⚫ Dead Stock" :
-                       reorderFilter === "recommended" ? "🟠 Recommended" : reorderFilter}
+                       reorderFilter === "recommended" ? "🟠 Recommended" :
+                       reorderFilter === "active" ? "🟢 Active Stock" :
+                       reorderFilter === "inactive" ? "⚪ Dead Stock" : reorderFilter}
                     </Badge>
                   )}
                   {stockFilter !== "all" && (
@@ -739,6 +1097,9 @@ export function StockManagement() {
                   {selectedSize !== "all" && (
                     <Badge variant="outline" className="text-xs">Size: {selectedSize}</Badge>
                   )}
+                  {selectedColor !== "all" && (
+                    <Badge variant="outline" className="text-xs">Color: {selectedColor}</Badge>
+                  )}
                   {searchTerm && (
                     <Badge variant="outline" className="text-xs">Search: "{searchTerm}"</Badge>
                   )}
@@ -750,11 +1111,13 @@ export function StockManagement() {
             {filteredProducts.length > 0 && (reorderFilter !== "all" || stockFilter !== "all") && (
               <div className="text-xs text-muted-foreground">
                 {reorderFilter === "urgent" && `⚠️ ${filteredProducts.filter(p => p.days_until_stockout! < 7).length} items need immediate attention`}
-                {reorderFilter === "needed" && `📦 ${filteredProducts.filter(p => p.quantity <= (p.low_stock_threshold ?? getBaselineThreshold())).length} items below reorder point`}
+                {reorderFilter === "needed" && `📦 ${filteredProducts.filter(p => getStockLevel(p) <= (p.low_stock_threshold ?? getBaselineThreshold())).length} items below reorder point`}
                 {reorderFilter === "slow" && `🐌 ${filteredProducts.length} slow-moving items (60+ days)`}
                 {reorderFilter === "dead" && `💀 ${filteredProducts.length} dead stock items (90+ days)`}
-                {stockFilter === "out" && `🔴 ${filteredProducts.filter(p => p.quantity === 0).length} out of stock items`}
-                {stockFilter === "low" && `🟡 ${filteredProducts.filter(p => p.quantity > 0 && p.quantity <= (p.low_stock_threshold ?? (typeof baselineThreshold === 'number' ? baselineThreshold : 0))).length} low stock items`}
+                {reorderFilter === "active" && `🟢 ${filteredProducts.length} active items with recent sales`}
+                {reorderFilter === "inactive" && `⚪ ${filteredProducts.length} inactive items without recent sales`}
+                {stockFilter === "out" && `🔴 ${filteredProducts.filter(p => getStockLevel(p) === 0).length} out of stock items`}
+                {stockFilter === "low" && `🟡 ${filteredProducts.filter(p => getStockLevel(p) > 0 && getStockLevel(p) <= (p.low_stock_threshold ?? (typeof baselineThreshold === 'number' ? baselineThreshold : 0))).length} low stock items`}
               </div>
             )}
           </div>
@@ -762,9 +1125,9 @@ export function StockManagement() {
         <CardContent>
           <div className="overflow-hidden">
             {/* Table Header */}
-            <div className="grid grid-cols-18 gap-2 p-3 bg-muted/50 border-b font-medium text-sm">
+            <div className="grid grid-cols-20 gap-2 p-3 bg-muted/50 border-b font-medium text-sm">
               <div className="col-span-3 text-left">SKU</div>
-              <div className="col-span-4 text-left">Product Details</div>
+              <div className="col-span-6 text-left">Product Details</div>
               <div className="col-span-2 text-left">Category</div>
               <div className="col-span-2 text-center">Stock Level</div>
               <div className="col-span-2 text-center">Sales Rate</div>
@@ -775,21 +1138,21 @@ export function StockManagement() {
 
             {/* Virtualized Product Rows */}
             {currentPageItems.length > 0 ? (
-              <div style={{ height: Math.min(600, currentPageItems.length * 60) }}>
+              <div style={{ height: Math.min(800, currentPageItems.length * rowHeight) }}>
                 <List
-                  height={Math.min(600, currentPageItems.length * 60)}
+                  height={Math.min(800, currentPageItems.length * rowHeight)}
                   itemCount={currentPageItems.length}
-                  itemSize={60}
+                  itemSize={rowHeight}
                   width={'100%'}
                 >
                   {({ index, style }: { index: number; style: React.CSSProperties }) => {
                     const product = currentPageItems[index]
                     return (
                       <div
-                        key={product.id}
+                        key={getSku(product)}
                         style={style}
-                        className="grid grid-cols-18 gap-2 p-3 border-b hover:bg-muted/50 cursor-pointer transition-colors items-center"
-                        onClick={() => router.push(`/dashboard/products/${product.id}`)}
+                        className="grid grid-cols-20 gap-2 p-3 border-b hover:bg-muted/50 cursor-pointer transition-colors items-center"
+                        onClick={() => router.push(`/dashboard/products/${getSku(product)}`)}
                       >
                         {/* SKU */}
                         <div className="col-span-3 font-mono text-sm text-muted-foreground">
@@ -797,7 +1160,7 @@ export function StockManagement() {
                         </div>
                         
                         {/* Product Details */}
-                        <div className="col-span-4">
+                        <div className="col-span-6">
                           <div className="font-medium text-sm">{product.name}</div>
                           <div className="text-xs text-muted-foreground mt-1">
                             {product.size && <Badge variant="outline" className="text-xs px-1 py-0">{product.size}</Badge>}
@@ -812,66 +1175,170 @@ export function StockManagement() {
                         {/* Stock Level */}
                         <div className="col-span-2 text-center">
                           <span className={`font-medium text-sm ${
-                            product.quantity === 0 ? 'text-red-600' :
-                            product.quantity <= (product.low_stock_threshold ?? getBaselineThreshold()) ? 'text-amber-600' :
+                            getStockLevel(product) === 0 ? 'text-red-600' :
+                            getStockLevel(product) <= (product.low_stock_threshold ?? getBaselineThreshold()) ? 'text-amber-600' :
                             'text-green-600'
                           }`}>
-                            {product.quantity.toLocaleString()}
+                            {getStockLevel(product).toLocaleString()}
                           </span>
                         </div>
                         
                         {/* Sales Rate */}
                         <div className="col-span-2 text-center">
                           <div className="flex flex-col items-center">
-                            <span className="font-medium text-sm">
-                              {product.daily_sales_rate?.toFixed(1) || '0.0'}
-                            </span>
-                            <span className="text-xs text-muted-foreground">per day</span>
+                            {(() => {
+                              const sku = getSku(product)
+                              const salesAnalysis = salesData.get(sku)
+                              
+                              if (loadingSales) {
+                                return <span className="text-xs text-muted-foreground">Loading...</span>
+                              }
+                              
+                              if (salesAnalysis) {
+                                return (
+                                  <>
+                                    <span className="font-medium text-sm">
+                                      {salesAnalysis.averageDailySales.toFixed(1)}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">per day (real)</span>
+                                  </>
+                                )
+                              }
+                              
+                              if (dataSource === 'pajara') {
+                                return (
+                                  <>
+                                    <span className="font-medium text-sm">--</span>
+                                    <span className="text-xs text-muted-foreground">no sales data</span>
+                                  </>
+                                )
+                              }
+                              
+                              return (
+                                <>
+                                  <span className="font-medium text-sm">
+                                    {(product.daily_sales_rate?.toFixed(1) || '0.0')}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">per day (mock)</span>
+                                </>
+                              )
+                            })()} 
                           </div>
                         </div>
                         
                         {/* Days Until Stockout */}
                         <div className="col-span-2 text-center">
-                          <span className={`font-medium text-sm ${
-                            product.days_until_stockout! < 7 ? 'text-red-600' :
-                            product.days_until_stockout! < 14 ? 'text-orange-600' :
-                            product.days_until_stockout! < 30 ? 'text-amber-600' : 'text-green-600'
-                          }`}>
-                            {product.days_until_stockout! > 999 ? '∞' : `${product.days_until_stockout}d`}
-                          </span>
+                          {(() => {
+                            const sku = getSku(product)
+                            const salesAnalysis = salesData.get(sku)
+                            
+                            if (loadingSales) {
+                              return <span className="text-xs text-muted-foreground">Loading...</span>
+                            }
+                            
+                            if (salesAnalysis && salesAnalysis.averageDailySales > 0) {
+                              const daysLeft = Math.floor(getStockLevel(product) / salesAnalysis.averageDailySales)
+                              return (
+                                <span className={`font-medium text-sm ${
+                                  daysLeft < 7 ? 'text-red-600' :
+                                  daysLeft < 14 ? 'text-orange-600' :
+                                  daysLeft < 30 ? 'text-amber-600' : 'text-green-600'
+                                }`}>
+                                  {daysLeft > 999 ? '∞' : `${daysLeft}d`}
+                                </span>
+                              )
+                            }
+                            
+                            if (dataSource === 'pajara') {
+                              return <span className="font-medium text-sm">--</span>
+                            }
+                            
+                            return (
+                              <span className={`font-medium text-sm ${
+                                product.days_until_stockout! < 7 ? 'text-red-600' :
+                                product.days_until_stockout! < 14 ? 'text-orange-600' :
+                                product.days_until_stockout! < 30 ? 'text-amber-600' : 'text-green-600'
+                              }`}>
+                                {product.days_until_stockout! > 999 ? '∞' : `${product.days_until_stockout}d`}
+                              </span>
+                            )
+                          })()} 
                         </div>
                         
                         {/* Sales Trend */}
                         <div className="col-span-2 text-center">
-                          <div className="flex flex-col items-center">
-                            {product.sales_trend === 'increasing' ? (
-                              <span className="text-green-600 text-lg">📈</span>
-                            ) : product.sales_trend === 'decreasing' ? (
-                              <span className="text-red-600 text-lg">📉</span>
-                            ) : (
-                              <span className="text-gray-600 text-lg">➡️</span>
-                            )}
-                            <span className="text-xs text-muted-foreground capitalize">
-                              {product.sales_trend}
-                            </span>
-                          </div>
+                          {(() => {
+                            const sku = getSku(product)
+                            const salesAnalysis = salesData.get(sku)
+                            
+                            if (loadingSales) {
+                              return (
+                                <div className="flex flex-col items-center">
+                                  <span className="text-xs text-muted-foreground">Loading...</span>
+                                </div>
+                              )
+                            }
+                            
+                            if (salesAnalysis) {
+                              const trend = salesAnalysis.daysSinceLastSale <= 7 ? 'increasing' :
+                                           salesAnalysis.daysSinceLastSale <= 30 ? 'stable' : 'decreasing'
+                              return (
+                                <div className="flex flex-col items-center">
+                                  {trend === 'increasing' ? (
+                                    <span className="text-green-600 text-lg">📈</span>
+                                  ) : trend === 'decreasing' ? (
+                                    <span className="text-red-600 text-lg">📉</span>
+                                  ) : (
+                                    <span className="text-gray-600 text-lg">➡️</span>
+                                  )}
+                                  <span className="text-xs text-muted-foreground capitalize">
+                                    {trend}
+                                  </span>
+                                </div>
+                              )
+                            }
+                            
+                            if (dataSource === 'pajara') {
+                              return (
+                                <div className="flex flex-col items-center">
+                                  <span className="text-lg">--</span>
+                                  <span className="text-xs text-muted-foreground">&nbsp;</span>
+                                </div>
+                              )
+                            }
+                            
+                            return (
+                              <div className="flex flex-col items-center">
+                                {product.sales_trend === 'increasing' ? (
+                                  <span className="text-green-600 text-lg">📈</span>
+                                ) : product.sales_trend === 'decreasing' ? (
+                                  <span className="text-red-600 text-lg">📉</span>
+                                ) : (
+                                  <span className="text-gray-600 text-lg">➡️</span>
+                                )}
+                                <span className="text-xs text-muted-foreground capitalize">
+                                  {product.sales_trend}
+                                </span>
+                              </div>
+                            )
+                          })()}
                         </div>
                         
                         {/* Status Badge */}
                         <div className="col-span-1 text-center">
                           {(() => {
-                            // Generate consistent days since last sale based on product ID (for demo purposes)
-                            const daysSinceLastSale = (product.id * 7) % 120 // Deterministic value between 0-119
+                            // Generate consistent days since last sale based on product SKU or legacy ID (for demo purposes)
+                            const daysSinceLastSale = getDaysSinceLastSale(product.sku ?? (product.id ?? 0))
                             
-                            if (product.quantity === 0) {
+                            if (getStockLevel(product) === 0) {
                               return <Badge variant="destructive" className="text-xs px-2 py-1 bg-red-600 text-white">Out</Badge>
-                            } else if (daysSinceLastSale > 90) {
+                            } else if (dataSource !== 'pajara' && daysSinceLastSale > 90) {
                               return <Badge variant="destructive" className="text-xs px-2 py-1 bg-gray-800 text-white">Dead</Badge>
-                            } else if (daysSinceLastSale > 60) {
+                            } else if (dataSource !== 'pajara' && daysSinceLastSale > 60) {
                               return <Badge variant="secondary" className="text-xs px-2 py-1 bg-purple-500 text-white">Slow</Badge>
                             } else if (product.days_until_stockout! < 7) {
                               return <Badge variant="destructive" className="text-xs px-2 py-1 bg-red-500 text-white">Urgent</Badge>
-                            } else if (product.quantity <= (product.low_stock_threshold ?? getBaselineThreshold())) {
+                            } else if (getStockLevel(product) <= (product.low_stock_threshold ?? getBaselineThreshold())) {
                               return <Badge variant="secondary" className="text-xs px-2 py-1 bg-amber-500 text-white">Low</Badge>
                             } else if (product.days_until_stockout! < 30) {
                               return <Badge variant="outline" className="text-xs px-2 py-1 bg-yellow-500 text-black">Watch</Badge>

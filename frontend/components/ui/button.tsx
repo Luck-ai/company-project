@@ -47,6 +47,20 @@ function Button({
   }) {
   const Comp = asChild ? Slot : "button"
 
+  // If we're rendering a native <button>, ensure the default type is "button"
+  // to avoid implicit form submissions when used inside a <form>.
+  if (Comp === "button") {
+    const { type, ...rest } = props as React.ComponentProps<"button">;
+    return (
+      <button
+        data-slot="button"
+        type={type ?? "button"}
+        className={cn(buttonVariants({ variant, size, className }))}
+        {...rest}
+      />
+    )
+  }
+
   return (
     <Comp
       data-slot="button"

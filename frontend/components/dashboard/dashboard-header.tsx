@@ -1,17 +1,6 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Bell, Settings } from "lucide-react"
 
 export function DashboardHeader() {
   return (
@@ -20,10 +9,10 @@ export function DashboardHeader() {
         <div className="flex items-center space-x-6">
           <div className="flex items-center space-x-2">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">TG</span>
+              <span className="text-primary-foreground font-bold text-sm">SM</span>
             </div>
             <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              Toogtons Stock Management
+              Stock Management
             </h1>
           </div>
         </div>

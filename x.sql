@@ -1,0 +1,1 @@
+SELECT date , quantity FROM public.product_sale WHERE sku = 'PJR-SL-0006-SL-PP-F';
