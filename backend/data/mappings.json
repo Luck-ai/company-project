@@ -1,0 +1,11 @@
+{
+  "prefix": {
+    "DNPJ": "DNPJ (example)"
+  },
+  "pattern": {
+    "DK": "DK (example)"
+  },
+  "color": {
+    "BU": "BU (example)"
+  }
+}
